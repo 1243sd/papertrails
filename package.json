@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Papertrails - a paper traveller walks across an endless pop-up book (Three.js walking toy)",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
