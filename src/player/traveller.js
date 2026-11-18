@@ -195,10 +195,16 @@ export function createTraveller({ scene, assets, world, materials }) {
   // shortfall pass: state of "rounding an obstacle" (see update) and the outward normal of the clearance field at a point
   const fol = { on: false, done: false, ix: 0, iz: 0, t: 0, slow: 0, flips: 0, left: 0, ux: 0, uz: 1, prog: 0, hand: 1, tx: 1, tz: 0 };
   let folNX = 0; let folNZ = 0; let folN = 0;
+  // fix 2026-11-18: the outline is traced in a band just OUTSIDE his radius (FOL_SEE), not with room() (clamped at R): pressed
+  // against an edge (c == R, the only place tryStep lets him stand) the clamped field had no gradient, the follower lost the
+  // outline, curled back into the prop and he stood there although the way round was wide open.
+  const FOL_SEE = R + 0.22;
+  const FOL_KEEP = R + 0.035; // room the follower keeps from the outline
+  const roomF = (x, z) => { const c = clearance(x, z); return c > FOL_SEE ? FOL_SEE : c; };
   function folNormal(x, z) {
     let gx = 0; let gz = 0; let gl = 0;
-    for (let e = 0.06; e < 0.2 && gl < 1e-4; e += 0.08) {
-      gx = room(x + e, z) - room(x - e, z); gz = room(x, z + e) - room(x, z - e); gl = hypot2(gx, gz);
+    for (let e = 0.04; e < 0.2 && gl < 1e-4; e += 0.06) {
+      gx = roomF(x + e, z) - roomF(x - e, z); gz = roomF(x, z + e) - roomF(x, z - e); gl = hypot2(gx, gz);
     }
     if (gl < 1e-4) { folN = 0; return; }
     folNX = gx / gl; folNZ = gz / gl; folN = 1;
@@ -408,12 +414,12 @@ export function createTraveller({ scene, assets, world, materials }) {
           }
         }
         if (fol.on) {
-          const rc = room(q.x, q.z);
+          const rc = roomF(q.x, q.z);
           folNormal(q.x, q.z);
           let fx; let fz;
-          if (folN > 0 && rc < R) {
+          if (folN > 0 && rc < FOL_SEE) {
             fol.tx = -folNZ * fol.hand; fol.tz = folNX * fol.hand;
-            let g = ((0.8 * R - rc) / R) * 2.5; // keep about 0.8 radius of room: out when tighter, in when looser
+            let g = ((FOL_KEEP - rc) / R) * 2.5; // keep FOL_KEEP of room: out when tighter, in when looser
             if (g < -0.8) g = -0.8; else if (g > 1.2) g = 1.2;
             fx = fol.tx + folNX * g; fz = fol.tz + folNZ * g;
           } else { fx = fol.tx * 0.75 + fol.ux * 0.65; fz = fol.tz * 0.75 + fol.uz * 0.65; } // lost the outline (convex corner): curl back toward it

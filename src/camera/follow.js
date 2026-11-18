@@ -6,6 +6,8 @@
 //   lag of the spring is pre-compensated, so the lead on screen is exactly `lookAhead`.
 // - The target sits `screenUp` units toward the top of the screen from the traveller, so the traveller
 //   stands a little below centre and the tiles rising ahead (north) are inside the frame.
+// - Camera window (CONFIG.camera.zone, on by default): a still zone / soft zone / hard edge round the traveller replaces
+//   the always-chasing spring target; see zoneStep. The spring above still smooths the window's moves.
 // - A very slow, tiny drift keeps the frame alive like a hand-set tripod head (deterministic).
 // - focusPoint / focusDistance (the traveller chest) feed the depth of field.
 import * as THREE from 'three';
@@ -140,6 +142,78 @@ export function createFollowCamera({ aspect = 16 / 9 } = {}) {
     return _want;
   }
 
+  // ---- camera window (CONFIG.camera.zone) ---------------------------------------------------------------------------
+  // zc = centre of the window on the ground. Each step, per screen axis (right / up): while the traveller moves outward
+  // inside the soft zone, zc follows by that step x smoothstep(still edge, hard edge, offset), so the camera is still in
+  // the still zone and matches his speed at the hard edge (a hard clamp stops him ever leaving it). Steady walking one
+  // way (walkT) also eases zc toward a point ahead of him (the look-ahead), lag-compensated, so he walks with room in front.
+  const ZN = C.zone || { enabled: false };
+  const zc = new THREE.Vector3();
+  const zPrev = new THREE.Vector3(); // traveller position at the previous zone step
+  const zDir = new THREE.Vector2(); // smoothed walking direction (x, z)
+  let walkT = 0;
+  let zoneLive = false; // zc valid (set by snap or the first zone step)
+  function zoneOn() {
+    return ZN.enabled !== false && pose.zone !== false && pose.pitchDeg + aPitch <= 60;
+  }
+  function zoneStep(traveller, dt) {
+    const p = traveller.position;
+    if (!zoneLive) { zc.copy(p); zPrev.copy(p); zDir.set(0, 0); walkT = 0; zoneLive = true; }
+    const yaw = (pose.yawDeg + aYaw) * DEG;
+    const ux = -Math.sin(yaw); const uz = -Math.cos(yaw); const rx = Math.cos(yaw); const rz = -Math.sin(yaw);
+    const k = pose.distance / C.distance;
+    const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+    // offsets / step of the traveller in screen axes
+    let oR = (p.x - zc.x) * rx + (p.z - zc.z) * rz;
+    let oU = (p.x - zc.x) * ux + (p.z - zc.z) * uz;
+    const dR = (p.x - zPrev.x) * rx + (p.z - zPrev.z) * rz;
+    const dU = (p.x - zPrev.x) * ux + (p.z - zPrev.z) * uz;
+    zPrev.copy(p);
+    const sR = ZN.stillR * k; const hR = ZN.hardR * k;
+    const sU = (oU >= 0 ? ZN.stillUp : ZN.stillDown) * k; const hU = (oU >= 0 ? ZN.hardUp : ZN.hardDown) * k;
+    // steady walk one way -> w (0..1): the window travels with him and slides ahead of him
+    const vx = traveller.velocity.x; const vz = traveller.velocity.z; const v = Math.hypot(vx, vz);
+    if (v > 0.25 && dt > 0) {
+      const nx = vx / v; const nz = vz / v;
+      const a = 1 - Math.exp(-dt / 0.35);
+      if (zDir.lengthSq() < 0.01) zDir.set(nx, nz);
+      else { zDir.x += (nx - zDir.x) * a; zDir.y += (nz - zDir.y) * a; }
+      const dl = zDir.length() || 1;
+      walkT = (nx * zDir.x + nz * zDir.y) / dl > 0.7 ? walkT + dt : Math.max(0, walkT - 3 * dt); // a wiggle or a slide round a stone does not reset it
+    } else walkT = 0;
+    const w = sm(ZN.leadAfter[0], ZN.leadAfter[1], walkT - dt * 0.5); // middle of the step
+    // follow his step: x soft-zone factor while he moves outward, x w (carried along) once he walks steadily
+    // factor at the middle of the step (second order: the window path does not depend on the frame rate)
+    const fR = dR * oR > 0 ? sm(sR, hR, Math.abs(oR - dR * 0.5)) : 0;
+    const fU = dU * oU > 0 ? sm(sU, hU, Math.abs(oU - dU * 0.5)) : 0;
+    let mR = dR * Math.max(fR, w); let mU = dU * Math.max(fU, w);
+    oR -= mR; oU -= mU;
+    if (w > 0 && dt > 0) {
+      const nx = vx / v; const nz = vz / v;
+      const down = Math.max(0, -(nx * ux + nz * uz));
+      const look = (pose.lookAhead + (Math.max(pose.lookAheadSouth ?? pose.lookAhead, pose.lookAhead) - pose.lookAhead) * down) * k + v * ZN.smoothTime; // + the lag of the smoothing spring
+      // the offset he should have from the centre (centre `look` ahead of him), kept inside the hard edges
+      let lR = -(nx * rx + nz * rz) * look; let lU = -(nx * ux + nz * uz) * look;
+      lR = Math.max(-(hR - 0.1 * k), Math.min(hR - 0.1 * k, lR));
+      lU = Math.max(-(ZN.hardDown - 0.1) * k, Math.min((ZN.hardUp - 0.1) * k, lU));
+      // slide toward it: exponential (leadTau) but never faster than leadRate x his speed, so the catch-up is calm
+      const gR = oR - lR; const gU = oU - lU; const g = Math.hypot(gR, gU);
+      if (g > 1e-5) {
+        const d = Math.min(g * (1 - Math.exp(-dt / ZN.leadTau)), (ZN.leadRate ?? 1.2) * v * dt) * w;
+        mR += gR / g * d; mU += gU / g * d; oR -= gR / g * d; oU -= gU / g * d;
+      }
+    }
+    // hard edges: he never leaves the window
+    const hU2 = (oU >= 0 ? ZN.hardUp : ZN.hardDown) * k;
+    if (Math.abs(oR) > hR) { const c = oR - Math.sign(oR) * hR; mR += c; }
+    if (Math.abs(oU) > hU2) { const c = oU - Math.sign(oU) * hU2; mU += c; }
+    zc.x += mR * rx + mU * ux; zc.z += mR * rz + mU * uz;
+    zc.y = p.y;
+    const su = pose.screenUp || 0; const sr = pose.screenRight || 0;
+    _want.set(zc.x + ux * su + rx * sr, p.y + (pose.targetHeight || 0), zc.z + uz * su + rz * sr);
+    return _want;
+  }
+
   function setFocus(traveller) {
     focusPoint.copy(traveller.position);
     focusPoint.y += CONFIG.TRAVELLER_HEIGHT * (pose.focusHeight ?? 0.6);
@@ -192,8 +266,10 @@ export function createFollowCamera({ aspect = 16 / 9 } = {}) {
     update(dt, traveller) {
       if (dt > 0) {
         clock += dt;
-        const goal = wanted(traveller);
-        const omega = 2 / Math.max(0.01, pose.smoothTime);
+        const zone = zoneOn();
+        if (!zone) zoneLive = false;
+        const goal = zone ? zoneStep(traveller, dt) : wanted(traveller);
+        const omega = 2 / Math.max(0.01, zone ? ZN.smoothTime : pose.smoothTime);
         const e = Math.exp(-omega * dt);
         // chase the goal at the middle of the step (second-order accurate for a moving goal, so the
         // camera path does not depend on the frame rate)
@@ -213,6 +289,22 @@ export function createFollowCamera({ aspect = 16 / 9 } = {}) {
       updateAssist(0, traveller, true);
       if (aYaw !== 0) target.copy(wanted(traveller, true));
       prevGoal.copy(wanted(traveller));
+      zoneLive = false;
+      if (zoneOn()) {
+        // the window starts centred on him, or (walking) already in its steady lead: the frame matches the spring's
+        const p = traveller.position;
+        zoneStep(traveller, 0);
+        const v = Math.hypot(traveller.velocity.x, traveller.velocity.z);
+        if (v > 0.25) {
+          const su = pose.screenUp || 0; const yaw = (pose.yawDeg + aYaw) * DEG;
+          // steady state of the spring path: target = him + screenUp + lead, so the window centre = target - screenUp
+          zc.set(target.x + Math.sin(yaw) * su, p.y, target.z + Math.cos(yaw) * su);
+          zDir.set(traveller.velocity.x / v, traveller.velocity.z / v);
+          walkT = ZN.leadAfter[1];
+        }
+        target.copy(zoneStep(traveller, 0));
+        prevGoal.copy(target);
+      }
       targetVel.set(traveller.velocity.x, 0, traveller.velocity.z);
       clock = 0;
       setFocus(traveller);
