@@ -153,6 +153,9 @@ export async function checkGame(app, capture, reloaded = false) {
     assert(traveller.wardrobe.season === site.id, '进入季节时主角造型未切换：' + site.id);
     apparel.add(traveller.parts.body.part.geometry.attributes.position.count);
     parasols.add(traveller.wardrobe.parasol.getObjectByName('parasol-canopy').geometry.attributes.position.count);
+    const held = traveller.wardrobe.parasol.getObjectByName('parasol-open');
+    const axis = new THREE.Vector3(0, 1, 0).applyQuaternion(held.getWorldQuaternion(new THREE.Quaternion()));
+    assert(axis.y > 0.999, '白天伞杆应该直立：' + site.id);
     assert(treasures.isVisible(site.id) && treasures.isReady(site.id), '实际游戏中宝箱点位不可交互：' + site.id);
     const feet = traveller.position.clone();
     key('KeyF'); key('KeyD');

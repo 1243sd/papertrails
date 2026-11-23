@@ -99,7 +99,7 @@ async function boot() {
     views.update(dt);
     follow.update(dt, traveller);
     daynight.update(dt);
-    traveller.wardrobe.update(dt, daynight.night, follow.camera);
+    traveller.wardrobe.update(dt, daynight.night);
     if (life) life.update(dt, p, follow.camera);
     if (animals) animals.update(dt);
     game.update(dt);

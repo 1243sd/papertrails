@@ -20,9 +20,7 @@ function createParasol(season, materials) {
   open.name = 'parasol-open';
   const cane = new THREE.Group();
   cane.name = 'parasol-cane';
-  const swivel = new THREE.Group();
-  swivel.add(open);
-  parasol.add(swivel, cane);
+  parasol.add(open, cane);
   const paper = (color) => materials.paper({ color, variant: 'traveller' });
   const owned = [];
   function mesh(group, geometry, material, x = 0, y = 0, z = 0) {
@@ -33,7 +31,7 @@ function createParasol(season, materials) {
     return m;
   }
   const stem = paper(trim);
-  const rise = season === 'winter' ? 0.065 : 0;
+  const rise = season === 'winter' ? 0.11 : 0.08;
   mesh(open, new THREE.CylinderGeometry(0.008, 0.009, 0.64 + rise, 6), stem, 0, 0.28 + rise / 2);
   mesh(open, new THREE.SphereGeometry(0.016, 8, 5), stem, 0, 0.607 + rise);
   mesh(cane, new THREE.CylinderGeometry(0.007, 0.01, 0.345, 6), stem, 0, -0.076);
@@ -47,7 +45,6 @@ function createParasol(season, materials) {
     const handle = mesh(cane, new THREE.SphereGeometry(0.017, 8, 6), paper(season === 'spring' ? base : trim), 0, 0.102);
     handle.scale.set(season === 'spring' ? 1.25 : 1, season === 'summer' ? 1.3 : 0.76, 1);
   }
-  open.rotation.z = season === 'winter' ? -0.73 : -0.63;
   cane.rotation.z = 0.13;
   const cloth = new THREE.Group();
   cloth.position.y = 0.43 + rise;
@@ -125,12 +122,12 @@ function createParasol(season, materials) {
   }
   return {
     group: parasol,
-    pose(amount, tilt) {
+    pose(amount, upright) {
       open.visible = amount > 0.32;
       cane.visible = !open.visible;
-      swivel.rotation.y = tilt;
+      open.quaternion.copy(upright);
       const spread = Math.max(0.08, amount);
-      cloth.scale.set(spread, 0.84 + 0.16 * spread, spread);
+      cloth.scale.set(spread * 0.90, 0.84 + 0.16 * spread, spread * 0.90);
     },
     dispose() { parasol.removeFromParent(); for (const geometry of owned) geometry.dispose(); },
   };
@@ -139,7 +136,7 @@ function createParasol(season, materials) {
 export function createWardrobe({ assets, materials, parts, rig, world, position }) {
   const arm = parts.arm_l?.part;
   const grip = new THREE.Vector3();
-  const viewpoint = new THREE.Vector3();
+  const upright = new THREE.Quaternion();
   const seasons = {};
   const spring = new Map(GARMENT_PARTS.map((part) => {
     const mesh = parts[part]?.part;
@@ -148,14 +145,12 @@ export function createWardrobe({ assets, materials, parts, rig, world, position 
   let season;
   let active;
   let amount;
-  let tilt;
-  let side = 1;
   let night = false;
   return {
     get season() { return season; },
     get parasol() { return active?.group; },
     get umbrellaMode() { return night ? 'cane' : 'open'; },
-    update(dt, isNight, camera) {
+    update(dt, isNight) {
       night = isNight;
       const next = SEASON[world.biomeAt?.(position.x, position.z)] || 'spring';
       if (next !== season) {
@@ -181,22 +176,9 @@ export function createWardrobe({ assets, materials, parts, rig, world, position 
       arm.localToWorld(grip);
       active.group.position.copy(rig.worldToLocal(grip));
 
-      let direction = 0;
-      if (camera && amount > 0) {
-        camera.getWorldPosition(viewpoint);
-        rig.worldToLocal(viewpoint);
-        const length = Math.hypot(viewpoint.x, viewpoint.z) || 1;
-        const x = viewpoint.x / length;
-        const z = viewpoint.z / length;
-        const handSide = grip.x * z - grip.z * x;
-        // Tip the canopy out toward the screen edge so it clears the face when the traveller turns.
-        if (Math.abs(handSide) > 0.045) side = Math.sign(handSide);
-        direction = Math.atan2(x * side + z * 0.16, z * side - x * 0.16);
-      }
-      tilt ??= direction;
-      const delta = direction - tilt;
-      tilt += Math.atan2(Math.sin(delta), Math.cos(delta)) * (1 - Math.exp(-dt * 15));
-      active.pose(amount, tilt);
+      // Keep the pole vertical even while the walk cycle rocks the body.
+      rig.getWorldQuaternion(upright).invert();
+      active.pose(amount, upright);
     },
     dispose() { for (const entry of Object.values(seasons)) entry.dispose(); },
   };
