@@ -22,10 +22,11 @@
     <meta name="twitter:image" content="https://xikhar.github.io/papertrails/social-card.jpg" />
     <meta name="twitter:image:alt" content="A traveller exploring Papertrails, a colorful pop-up paper world." />
     <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/src/game/treasure.css" />
     <style>
       html, body { cursor: none; margin: 0; height: 100%; overflow: hidden; background: #1c130d; }
       canvas#atlas { cursor: none; position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
-      /* The only on-screen text allowed: a plain fading hint. No panels, no buttons. */
+      /* The first-time controls fade after the player starts moving. */
       #hint {
         position: fixed; left: 0; right: 0; bottom: 4.5vh; text-align: center;
         font: 500 13px/1 Georgia, 'Times New Roman', serif; letter-spacing: 0.14em;
@@ -37,7 +38,8 @@
   </head>
   <body>
     <canvas id="atlas" tabindex="0"></canvas>
-    <div id="hint">WASD / click to walk &nbsp;·&nbsp; Shift run &nbsp;·&nbsp; Ctrl slow &nbsp;·&nbsp; Tab map &nbsp;·&nbsp; N night &nbsp;·&nbsp; M music &nbsp;·&nbsp; V view</div>
+    <div id="treasure-ui"></div>
+    <div id="hint">WASD / click to walk &nbsp;·&nbsp; Shift run &nbsp;·&nbsp; Ctrl slow &nbsp;·&nbsp; Tab map &nbsp;·&nbsp; N night &nbsp;·&nbsp; M music &nbsp;·&nbsp; V view &nbsp;·&nbsp; F 宝箱 &nbsp;·&nbsp; I 导入</div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

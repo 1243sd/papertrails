@@ -165,7 +165,7 @@ export function createAnimals({ scene, renderer, world, traveller, daynight, ass
   function okWater(x, z) { return isWater(x, z) && riseAt(x, z) >= 0; }
   // a follower squeezes through wherever the traveller's own feet fit (he keeps CONFIG.player.radius of room himself)
   // and stays with him over a tile that is still flat (held under his feet, or rising late)
-  const okAt = (sl, x, z) => (sl.mode === MODE_FLOAT ? okWater(x, z) : sl.st === ST_FOLLOW ? world.clearance(x, z) > 0.012 : okGround(x, z));
+  const okAt = (sl, x, z) => (sl.mode === MODE_FLOAT ? okWater(x, z) : sl.st === ST_FOLLOW ? (sl.comp ? companionGround(sl, x, z) : world.clearance(x, z) > 0.012) : okGround(x, z));
 
   // ---- perches: tops of stumps / logs / rocks of a tile model (tile space, rot 0) -------------------------------
   const perchCache = new Map();
@@ -472,7 +472,7 @@ export function createAnimals({ scene, renderer, world, traveller, daynight, ass
     slots.push({
       i, live: false, spec: null, sp: null, set: null, mode: 0, st: 0, st0: 0, x: 0, y: 0, z: 0, hx: 0, hz: 0, tx: 0, tz: 0, fx: 0, fz: 0,
       t: 0, dur: 0, v: 0, air: false, idle: null, face: 1, faceK: 1, s: 0, ph: 0, rock: 0, lift: 0, r: 1, mv: false, stuck: 0,
-      cool: 0, ft: 0, fmax: 0, side: 1, ang: 0, rad: 0, dir: 1, stale: false, seen: 0, comp: false, leave: false, nap: 0, wake: 0, bio: 0, unset: 0, fy: 0,
+      cool: 0, ft: 0, fmax: 0, side: 1, ang: 0, rad: 0, dir: 1, stale: false, seen: 0, comp: false, nap: 0, wake: 0, fy: 0,
     });
   }
   const byKey = new Map(); // spec.key -> slot
@@ -487,8 +487,8 @@ export function createAnimals({ scene, renderer, world, traveller, daynight, ass
   function hide(sl) { const o = sl.i * 16; M[o] = M[o + 1] = M[o + 4] = M[o + 5] = 0; M[o + 13] = -50; }
   function release(sl) {
     if (byKey.get(sl.spec.key) === sl) byKey.delete(sl.spec.key);
-    if (comp === sl) comp = null;
-    sl.live = false; sl.spec = null; sl.s = 0; sl.comp = false; sl.leave = false;
+    if (sl.comp) companions.delete(sl.spec.member.id);
+    sl.live = false; sl.spec = null; sl.s = 0; sl.comp = false;
     hide(sl);
   }
   /** Back to where the cell's own rule puts it (also the start state). */
@@ -521,7 +521,7 @@ export function createAnimals({ scene, renderer, world, traveller, daynight, ass
     for (let i = 0; i < N; i++) if (!slots[i].live) { sl = slots[i]; break; }
     if (!sl) return null;
     sl.live = true; sl.spec = spec; sl.sp = spec.sp; sl.set = spec.set; sl.mode = spec.mode; sl.s = 0; sl.stale = false;
-    sl.comp = false; sl.leave = false; sl.nap = 0; sl.wake = 0; sl.bio = 0; sl.unset = 0; sl.fy = 0;
+    sl.comp = false; sl.nap = 0; sl.wake = 0; sl.fy = 0;
     reset(sl);
     byKey.set(spec.key, sl);
     spawned++;
@@ -638,7 +638,7 @@ export function createAnimals({ scene, renderer, world, traveller, daynight, ass
   }
   function tryFollow(sl, d2, tsp) {
     const sp = sl.sp;
-    if (!(sp.follow > 0) || sl.leave || sl.cool > 0 || d2 > sp.notice * sp.notice || tsp < 0.4 || (sl.st === ST_IDLE && sl.idle === sl.set.sleep)) return false;
+    if (!(sp.follow > 0) || sl.cool > 0 || d2 > sp.notice * sp.notice || tsp < 0.4 || (sl.st === ST_IDLE && sl.idle === sl.set.sleep)) return false;
     if (followers >= C.maxFollowers || rnd(sl) >= sp.follow) { sl.cool = 8; return false; }
     sl.st = ST_FOLLOW; sl.t = 0; sl.ft = 0; sl.stuck = 0; sl.air = false; sl.rad = 0;
     sl.fmax = sp.followTime[0] + rnd(sl) * (sp.followTime[1] - sp.followTime[0]);
@@ -679,101 +679,162 @@ export function createAnimals({ scene, renderer, world, traveller, daynight, ass
     return false;
   }
 
-  // ---- the companion (round 3): ONE cat adopts the traveller ---------------------------------------------------------
-  let comp = null; // its slot
-  let compWait = (C.companion && C.companion.after) || 5; // seconds until it may appear
-  let compSearch = 0; // seconds spent waiting for a cat of the place to notice him
-  let compSeen = -1; // clock at the first adoption
-  const compSpec = { key: -7, id: '', sp: null, set: null, x: 0, y: 0, z: 0, when: 0, mode: MODE_GROUND, vig: 0, face: 0, lead: null, seed: 1 };
-  function settledAt(x, z) {
-    const K = C.companion;
-    if (!K.biomes) return true;
-    const cx = Math.round(x / TILE_SIZE); const cz = Math.round(z / TILE_SIZE);
-    const cell = world.tileAt(cx, cz);
-    return K.biomes.includes((cell && cell.biome) || biomeAt(seed, cx, cz));
-  }
-  function adopt(sl, quick) {
-    // never more than maxFollowers in all: another cat that is following goes home
-    let nf = 0;
-    for (let i = 0; i < N; i++) if (slots[i].live && slots[i] !== sl && slots[i].st === ST_FOLLOW) nf++;
-    for (let i = 0; i < N && nf >= C.maxFollowers; i++) { const o = slots[i]; if (o.live && o !== sl && o.st === ST_FOLLOW && !o.comp) { endFollow(o); nf--; } }
-    if (sl.st !== ST_FOLLOW) followers++;
-    comp = sl; sl.comp = true; sl.leave = false; sl.stale = false;
-    sl.st = ST_FOLLOW; sl.t = 0; sl.ft = 0; sl.stuck = 0; sl.air = false; sl.rad = 0; sl.nap = 0; sl.unset = 0; sl.bio = 1; sl.dur = 0;
-    sl.wake = quick ? 0 : 0.6; // tail up: it has noticed him
-    if (compSeen < 0) compSeen = clock;
-  }
-  /** The companion lets him go: it walks home (a cat of the place), sits and watches him leave, or folds away. */
-  let compLeft = ''; // why it last left (checks)
-  function dismiss(sl, gap, sit, why) {
-    const K = C.companion; compLeft = why + '@' + clock.toFixed(1);
-    sl.comp = false; comp = null; compWait = gap; compSearch = Math.max(0, (K.spawnAfter || 12) - (K.back || 4));
-    if (sl.spec.key < 0) {
-      if (sit) { sl.st = ST_IDLE; sl.idle = sl.set.sit; sl.t = 0; sl.dur = 1e9; sl.hx = sl.x; sl.hz = sl.z; sl.leave = true; }
-      else sl.stale = true;
-    } else endFollow(sl);
-  }
-  /** Its own cat pops up `near` him (r = 0: right beside him, for stills) and comes over. */
-  function spawnCompanion(p, mdx, mdz, beside) {
-    const K = C.companion; const id = K.species || 'cat';
-    if (!SETS[id] || byKey.has(compSpec.key)) return false;
-    const base = Math.atan2(mdz, mdx); // ahead of him, so he walks up to it (a cat behind a walking man never catches up in time)
-    let fx = 0; let fz = 0; let found = false;
-    for (let ri = 0; ri < 4 && !found; ri++) {
-      const r = beside ? 0.3 + ri * 0.07 : [2.2, 1.7, 2.7, 1.3][ri];
-      for (let k = 0; k < FLEE_OFFS.length && !found; k++) {
-        const a = beside ? (k & 1 ? PI : 0) + (k >> 1) * 0.5 - 0.25 : base + FLEE_OFFS[(k + 1) % FLEE_OFFS.length] * 0.8;
-        const x = p.x + Math.cos(a) * r; const z = p.z + Math.sin(a) * r + (beside ? 0.06 : 0);
-        if (beside ? world.clearance(x, z) > 0.03 && !isWater(x, z) : okGround(x, z) && riseAt(x, z) >= C.riseAt) { fx = x; fz = z; found = true; }
-      }
+  // Permanent companions share the animal slots, poses and movement above.
+  const KC = C.companion;
+  const companions = new Map();
+  const target = { x: 0, z: 0 };
+  let compWait = KC.after;
+  let compSeen = -1;
+  let formationHeading = NaN;
+
+  function companionGround(self, x, z) {
+    if (world.clearance(x, z) <= 0.012) return false;
+    for (const other of companions.values()) {
+      if (other === self) continue;
+      const dx = x - other.x;
+      const dz = z - other.z;
+      if (dx * dx + dz * dz < 0.23 * 0.23) return false;
     }
-    if (!found) return false;
-    const sets = SETS[id]; let set = sets[0];
-    for (let i = 0; i < sets.length; i++) if (sets[i].art === K.coat) set = sets[i];
-    compSpec.id = id; compSpec.sp = SPEC[id]; compSpec.set = set; compSpec.x = fx; compSpec.z = fz; compSpec.y = 0;
-    compSpec.seed = ((Math.floor(clock * 977) ^ HA) >>> 0) || 1;
-    let sl = spawn(compSpec);
-    if (!sl) {
-      // pool full: the animal farthest from him makes room
-      let far = null; let fd = 4;
-      for (let i = 0; i < N; i++) { const o = slots[i]; if (!o.live || o.comp || o.st === ST_FOLLOW) continue; const dx = o.x - p.x; const dz = o.z - p.z; if (dx * dx + dz * dz > fd) { fd = dx * dx + dz * dz; far = o; } }
-      if (far === null) return false;
-      release(far);
-      sl = spawn(compSpec);
-      if (!sl) return false;
-    }
-    adopt(sl, beside);
     return true;
   }
-  function companionTick(dt, p, tsp, mdx, mdz) {
-    const K = C.companion;
-    if (!K || K.enabled === false) { if (comp !== null) dismiss(comp, 0, false, 'off'); return; }
-    if (comp !== null) { if (comp.live && comp.comp) return; comp = null; }
-    compWait -= dt;
-    if (compWait > 0) return;
-    compWait = 0.4; // look again a few times a second
-    if (!settledAt(p.x, p.z)) return;
-    const id = K.species || 'cat';
-    let best = null; let bd = K.notice * K.notice;
-    for (let i = 0; i < N; i++) {
-      const sl = slots[i];
-      if (!sl.live || sl.s < 0.9 || sl.spec.id !== id || sl.spec.lead !== null) continue;
-      // a cat up on a rail / bench / woodpile may adopt him too (it hops down to him); not from the tower top or the water
-      const up = sl.mode === MODE_PERCH && sl.spec.vig === VIG.on;
-      if (sl.mode !== MODE_GROUND && !up) continue;
-      if (sl.st !== ST_IDLE && sl.st !== ST_WALK && sl.st !== ST_FOLLOW && sl.st !== ST_RETURN && !(up && sl.st === ST_PERCH)) continue;
-      if (sl.st === ST_IDLE && sl.idle === sl.set.sleep) continue; // let sleeping cats lie
-      const dx = sl.x - p.x; const dz = sl.z - p.z; const d2 = (dx * dx + dz * dz) * (up ? 2 : 1); // a percher notices him closer
-      if (d2 < bd) { bd = d2; best = sl; }
+
+  function findTarget(self, member, p, fx, fz) {
+    const x = p.x - fx * member.back - fz * member.side;
+    const z = p.z - fz * member.back + fx * member.side;
+    if (companionGround(self, x, z)) { target.x = x; target.z = z; return true; }
+    // Widen the search around the same side of the player, staying behind them.
+    const angle = Math.atan2(fz, fx);
+    for (let ring = 0; ring < 5; ring++) {
+      const distance = member.back * (0.42 + ring * 0.26);
+      for (let i = 0; i < 5; i++) {
+        const a = angle + FLEE_OFFS[i] * Math.sign(member.side);
+        const nx = p.x - Math.cos(a) * distance - fz * member.side;
+        const nz = p.z - Math.sin(a) * distance + fx * member.side;
+        const dx = p.x - nx;
+        const dz = p.z - nz;
+        if (dx * dx + dz * dz < 0.29 * 0.29 || !companionGround(self, nx, nz)) continue;
+        target.x = nx; target.z = nz;
+        return true;
+      }
     }
-    if (best !== null) {
-      const up = best.mode === MODE_PERCH;
-      adopt(best, false);
-      if (up) { best.mode = MODE_GROUND; best.rad = 1; best.ang = 0; best.fx = best.x; best.fz = best.z; best.fy = best.y; } // down from its seat in one paper leap
+    return false;
+  }
+
+  function spawnCompanion(member, index, p, fx, fz) {
+    const id = KC.species;
+    const set = SETS[id]?.find((pose) => pose.art === member.coat);
+    if (!set || !findTarget(null, member, p, fx, fz)) return;
+    const spec = {
+      key: -7 - index, id, sp: SPEC[id], set, x: target.x, y: 0, z: target.z,
+      when: 0, mode: MODE_GROUND, vig: 0, face: 0, lead: null, seed: (HA ^ (index + 1)) || 1, member,
+    };
+    let sl = spawn(spec);
+    if (!sl) {
+      let far = null;
+      let farSq = -1;
+      for (const other of slots) {
+        if (!other.live || other.comp) continue;
+        const dx = other.x - p.x;
+        const dz = other.z - p.z;
+        const distanceSq = dx * dx + dz * dz;
+        if (distanceSq > farSq) { far = other; farSq = distanceSq; }
+      }
+      if (!far) return;
+      release(far);
+      sl = spawn(spec);
+    }
+    sl.comp = true;
+    sl.st = ST_FOLLOW;
+    sl.dur = 0;
+    sl.idle = sl.set.sit;
+    companions.set(member.id, sl);
+    if (compSeen < 0) compSeen = clock;
+  }
+
+  function companionTick(dt, p, speed, mdx, mdz, still = false) {
+    const heading = speed > 0.25 ? Math.atan2(mdx, mdz) : traveller.heading ?? Math.atan2(mdx, mdz);
+    if (!Number.isFinite(formationHeading) || still) formationHeading = heading;
+    else {
+      const delta = heading - formationHeading;
+      formationHeading += Math.atan2(Math.sin(delta), Math.cos(delta)) * (1 - Math.exp(-dt * 10));
+    }
+    if (!KC.enabled) {
+      for (const sl of companions.values()) release(sl);
       return;
     }
-    compSearch += 0.4;
-    if (compSearch >= (K.spawnAfter || 12) && spawnCompanion(p, mdx, mdz, false)) compSearch = 0;
+    const count = Math.min(C.maxFollowers, KC.members.length);
+    compWait -= dt;
+    if (!still && (compWait > 0 || companions.size === count)) return;
+    compWait = 0.4;
+    const fx = Math.sin(formationHeading);
+    const fz = Math.cos(formationHeading);
+    for (let i = 0; i < count; i++) {
+      const member = KC.members[i];
+      if (!companions.has(member.id)) spawnCompanion(member, i, p, fx, fz);
+    }
+  }
+
+  function followCompanion(sl, p, speed, distanceSq, dt) {
+    const set = sl.set;
+    if (sl.wake > 0) {
+      sl.wake -= dt;
+      if (sl.wake > 0) return set.stretch || set.sit;
+      sl.nap = 0;
+    }
+    const fx = Math.sin(formationHeading);
+    const fz = Math.cos(formationHeading);
+    const member = sl.spec.member;
+    const hasTarget = findTarget(sl, member, p, fx, fz);
+
+    if (sl.rad > 0) {
+      if (hasTarget && sl.ang >= 0.7 && !companionGround(sl, sl.tx, sl.tz)) {
+        sl.tx = target.x; sl.tz = target.z;
+      }
+      sl.ang = Math.min(1, sl.ang + dt / 0.42);
+      if (sl.ang < 1 || companionGround(sl, sl.tx, sl.tz)) {
+        sl.x = sl.fx + (sl.tx - sl.fx) * sl.ang;
+        sl.z = sl.fz + (sl.tz - sl.fz) * sl.ang;
+      } else {
+        sl.x = sl.fx; sl.z = sl.fz;
+      }
+      sl.y = world.heightAt(sl.x, sl.z) || 0;
+      if (Math.abs(sl.tx - sl.fx) > 0.08) sl.face = sl.tx > sl.fx ? 1 : -1;
+      if (sl.ang >= 1) { sl.rad = 0; sl.stuck = 0; }
+      return set.walk[0];
+    }
+
+    if (!hasTarget) return set.sit;
+    const tx = target.x;
+    const tz = target.z;
+    const dx = tx - sl.x;
+    const dz = tz - sl.z;
+    const distance = Math.sqrt(dx * dx + dz * dz);
+    if (speed <= 0.25 && distance < 0.12) {
+      sl.nap += dt;
+      return sl.nap >= KC.nap && set.sleep !== null ? set.sleep : set.sit;
+    }
+    if (sl.nap >= KC.nap) { sl.wake = 0.45; return set.stretch || set.sit; }
+    sl.nap = 0;
+    sl.v = Math.min(Math.max(sl.sp.run, speed * 1.32), distance * 7);
+    let result = advance(sl, tx, tz, sl.v, dt);
+    if (result === 2) {
+      const trailX = p.x - fx * (member.back * 0.65);
+      const trailZ = p.z - fz * (member.back * 0.65);
+      result = advance(sl, trailX, trailZ, sl.v, dt);
+    }
+    sl.stuck = result === 2 ? sl.stuck + dt : 0;
+    sl.dur = distanceSq > KC.catchUpDistance * KC.catchUpDistance ? sl.dur + dt : 0;
+    if (sl.stuck > 0.38 || sl.dur > 0.55) {
+      // A long relocation can happen after a teleport, but ordinary obstacles use a paper hop.
+      if (distanceSq > 144) {
+        sl.x = tx; sl.z = tz; sl.y = world.heightAt(tx, tz) || 0;
+        sl.stuck = 0;
+      } else {
+        sl.rad = 1; sl.ang = 0; sl.fx = sl.x; sl.fz = sl.z; sl.tx = tx; sl.tz = tz;
+      }
+      sl.dur = 0;
+    }
+    return set.walk[0];
   }
 
   function write(sl, pose) {
@@ -808,7 +869,6 @@ export function createAnimals({ scene, renderer, world, traveller, daynight, ass
     const mdx = md ? md.x : 0; const mdz = md ? md.z : 1;
     const flipK = Math.min(1, dt * C.flipRate);
     if (dt > 0) companionTick(dt, p, tsp, mdx, mdz);
-    const KC = C.companion;
     let nLive = 0; let nShown = 0; let nFollow = 0;
     for (let i = 0; i < N; i++) {
       const sl = slots[i];
@@ -818,7 +878,7 @@ export function createAnimals({ scene, renderer, world, traveller, daynight, ass
       const want = !sl.stale && (sl.st === ST_FOLLOW || riseAt(sl.x, sl.z) >= C.riseAt);
       if (want) sl.s = Math.min(1, sl.s + dt * C.popRate); else sl.s = Math.max(0, sl.s - dt * C.hideRate);
       if (sl.s <= 0) {
-        if (sl.stale || sl.spec.key < 0) { release(sl); continue; }
+        if (sl.stale) { release(sl); continue; }
         if (sl.x !== sl.spec.x || sl.z !== sl.spec.z || sl.st !== sl.st0) reset(sl); // its tile folded: back home
         hide(sl);
         continue;
@@ -829,7 +889,6 @@ export function createAnimals({ scene, renderer, world, traveller, daynight, ass
       sl.t += dt;
       if (sl.cool > 0) sl.cool -= dt;
       sl.mv = false;
-      if (sl.leave && d2 > 12) sl.stale = true; // the cat he left behind folds away once he is well gone
       let pose = sl.idle;
       let rock = 0; let lift = 0;
       const leader = sl.spec.lead !== null ? byKey.get(sl.spec.lead.key) : undefined;
@@ -888,21 +947,16 @@ export function createAnimals({ scene, renderer, world, traveller, daynight, ass
           sl.ft += dt;
           const hx = sl.x - sl.hx; const hz = sl.z - sl.hz;
           if (sl.comp) {
-            if (d2 > KC.lost * KC.lost || sl.stuck > 2.5) { dismiss(sl, KC.away, false, sl.stuck > 2.5 ? 'stuck' : 'lost'); break; } // lost him: back after a short while
-            sl.bio -= dt;
-            if (sl.bio <= 0) { sl.bio = 1; if (settledAt(p.x, p.z)) sl.unset = 0; else if (++sl.unset >= KC.wild) { dismiss(sl, KC.away, true, 'wild'); break; } }
-          } else if (sl.ft > sl.fmax || hx * hx + hz * hz > C.followFar * C.followFar || d2 > C.followLost * C.followLost || sl.stuck > 1.2) { endFollow(sl); break; }
-          nFollow++;
-          if (sl.wake > 0) {
-            // noticing him (tail up), or stretching after a nap, then one hop and off
-            sl.wake -= dt;
-            pose = sl.nap > KC.nap ? (set.stretch || set.sit) : (set.alert || set.sit);
-            if (Math.abs(dx) > 0.08) sl.face = dx > 0 ? 1 : -1;
-            if (sl.wake < 0.18) lift = Math.sin(Math.max(0, sl.wake) / 0.18 * PI) * 0.05;
-            if (sl.wake <= 0) sl.nap = 0;
+            nFollow++;
+            pose = followCompanion(sl, p, tsp, d2, dt);
+            if (sl.rad > 0) {
+              lift = Math.sin(sl.ang * PI) * 0.2;
+              rock = (0.5 - sl.ang) * 0.5 * sl.face;
+            }
             break;
           }
-          if (sl.comp && tsp > 0.25 && sl.nap > 0) { if (sl.nap > KC.nap) { sl.wake = 0.55; break; } sl.nap = 0; }
+          if (sl.ft > sl.fmax || hx * hx + hz * hz > C.followFar * C.followFar || d2 > C.followLost * C.followLost || sl.stuck > 1.2) { endFollow(sl); break; }
+          nFollow++;
           if (sl.rad > 0) {
             // boxed in behind a post or a wall: one paper leap over it, to the spot just behind him
             sl.ang += dt / 0.42;
@@ -924,8 +978,7 @@ export function createAnimals({ scene, renderer, world, traveller, daynight, ass
             tx = p.x - mdz * sd * C.followSide + mdx * 0.22; tz = p.z + mdx * sd * C.followSide + mdz * 0.22;
           } else {
             if (d2 < 0.45 * 0.45) { // he stopped: sit by him; the companion naps when he stands for long
-              if (sl.comp) sl.nap += dt;
-              pose = sl.idle = sl.comp && sl.nap > KC.nap && set.sleep !== null ? set.sleep : set.sit;
+              pose = sl.idle = set.sit;
               if (pose === set.sit && Math.abs(dx) > 0.08) sl.face = dx > 0 ? 1 : -1;
               break;
             }
@@ -934,7 +987,7 @@ export function createAnimals({ scene, renderer, world, traveller, daynight, ass
           }
           const ex = tx - sl.x; const ez = tz - sl.z;
           const el = Math.sqrt(ex * ex + ez * ez);
-          sl.v = Math.max(0.4, Math.min(sl.comp && el > 0.8 ? sp.run * 1.3 : sp.run, el * 7)); // the companion sprints to catch up
+          sl.v = Math.max(0.4, Math.min(sp.run, el * 7));
           let r = el > 0.04 ? advance(sl, tx, tz, sl.v, dt) : 1;
           if (r === 2) {
             // no room beside him: fall in behind (where he just walked) and try his other side next
@@ -942,9 +995,7 @@ export function createAnimals({ scene, renderer, world, traveller, daynight, ass
             r = advance(sl, p.x - mdx * 0.2, p.z - mdz * 0.2, Math.max(sl.v, sp.run * 0.8), dt);
           }
           if (r === 2) sl.stuck += dt; else sl.stuck = 0;
-          // the companion also leaps when it has fallen behind for a second (he crossed a bridge, rounded a yard ...)
-          if (sl.comp) sl.dur = d2 > KC.behind * KC.behind ? sl.dur + dt : 0;
-          if ((sl.stuck > 0.3 || (sl.comp && sl.dur > 0.45)) && world.clearance(p.x - mdx * 0.2, p.z - mdz * 0.2) > 0.012) { sl.rad = 1; sl.ang = 0; sl.fx = sl.x; sl.fz = sl.z; sl.dur = 0; }
+          if (sl.stuck > 0.3 && world.clearance(p.x - mdx * 0.2, p.z - mdz * 0.2) > 0.012) { sl.rad = 1; sl.ang = 0; sl.fx = sl.x; sl.fz = sl.z; }
           pose = set.walk[0];
           break;
         }
@@ -1013,6 +1064,7 @@ export function createAnimals({ scene, renderer, world, traveller, daynight, ass
           rock = Math.sin(ph * PI) * sp.rock;
         }
       } else if (sl.st === ST_IDLE && pose !== set.sleep) rock += Math.sin(clock * 1.1 + i * 2.3) * 0.012; // a breath of life
+      sl.pose = pose;
       sl.rock = rock; sl.lift = lift;
       sl.faceK += (sl.face - sl.faceK) * flipK;
       write(sl, pose);
@@ -1034,9 +1086,9 @@ export function createAnimals({ scene, renderer, world, traveller, daynight, ass
       followers = 0;
       night = !!(daynight && daynight.night);
       rescan();
-      comp = null; compWait = (C.companion && C.companion.after) || 5; compSearch = 0;
-      const K = C.companion; const p = traveller.position;
-      if (K && K.enabled !== false && K.stills !== false && settledAt(p.x, p.z)) spawnCompanion(p, 0, 1, true);
+      compWait = KC.after;
+      const md = traveller.moveDir;
+      if (KC.stills !== false) companionTick(0, traveller.position, 0, md?.x ?? 0, md?.z ?? -1, true);
       for (let i = 0; i < N; i++) { const sl = slots[i]; if (sl.live) sl.s = sl.st === ST_FOLLOW || riseAt(sl.x, sl.z) >= C.riseAt ? 1 : 0; }
       update(0);
     },
@@ -1048,14 +1100,14 @@ export function createAnimals({ scene, renderer, world, traveller, daynight, ass
       mesh.dispose();
     },
     /** Slots in use / drawn right now / walking with the traveller / ever spawned. */
-    stats() { return { loaded, pool: N, live, shown, followers, spawned, cells: cache.size, art: artNames.length, companion: comp !== null, companionAt: compSeen, companionLeft: compLeft }; },
+    stats() { return { loaded, pool: N, live, shown, followers, spawned, cells: cache.size, art: artNames.length, companion: companions.size > 0, companions: companions.size, companionAt: compSeen }; },
     /** Debug: every live animal: { id, art, x, y, z, state, pose, shown, mode, home }. Allocates. */
     list() {
       const out = [];
       for (let i = 0; i < N; i++) {
         const sl = slots[i];
         if (!sl.live) continue;
-        out.push({ slot: i, id: sl.spec.id, art: sl.set.art, x: sl.x, y: sl.y + sl.lift, z: sl.z, state: ST_NAMES[sl.st], pose: sl.mv ? 'moving' : sl.idle ? sl.idle.name : '', shown: sl.s > 0.5, s: sl.s, mode: sl.mode, face: sl.face, hx: sl.hx, hz: sl.hz, cool: sl.cool, chain: sl.spec.lead !== null, comp: sl.comp, vig: VIG_NAMES[sl.spec.vig | 0], nap: sl.nap });
+        out.push({ slot: i, id: sl.spec.id, art: sl.set.art, x: sl.x, y: sl.y + sl.lift, z: sl.z, state: ST_NAMES[sl.st], pose: sl.mv ? 'moving' : sl.pose?.name ?? '', shown: sl.s > 0.5, s: sl.s, mode: sl.mode, face: sl.face, hx: sl.hx, hz: sl.hz, cool: sl.cool, chain: sl.spec.lead !== null, comp: sl.comp, companionId: sl.spec.member?.id, vig: VIG_NAMES[sl.spec.vig | 0], nap: sl.nap });
       }
       return out;
     },
@@ -1073,7 +1125,7 @@ export function createAnimals({ scene, renderer, world, traveller, daynight, ass
     /** Debug: the pieces a vignette can anchor to: [{ name, x, z, hx, hz, top }] in tile space (rot 0; parity = rot & 1). */
     debugPieces(model, parity = 0) { return piecesFor(model, parity).map((q) => ({ ...q })); },
     /** Debug: force the rule cache to be rebuilt (after editing CONFIG.animals.spawns / density live). */
-    refresh() { cache.clear(); pieceCache.clear(); for (let i = 0; i < N; i++) if (slots[i].live) release(slots[i]); comp = null; compSeen = -1; compSearch = 0; compWait = (C.companion && C.companion.after) || 5; dirty = true; },
+    refresh() { cache.clear(); pieceCache.clear(); for (let i = 0; i < N; i++) if (slots[i].live) release(slots[i]); compSeen = -1; formationHeading = NaN; compWait = KC.after; dirty = true; },
   };
   return api;
 }

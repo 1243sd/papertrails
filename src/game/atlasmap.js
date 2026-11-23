@@ -34,6 +34,13 @@ const DEFAULTS = {
   panSpeed: 0.9, // view heights per second with the keys
 };
 
+const COMPASS = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
+
+function directionTo(x, z, targetX, targetZ) {
+  const sector = Math.round(Math.atan2(targetX - x, z - targetZ) / (Math.PI / 4));
+  return COMPASS[(sector + COMPASS.length) % COMPASS.length];
+}
+
 const INK = '#5a3a28';
 // flat ground tones (fallback patchwork when the book bake cannot be read)
 const BIOME_GROUND = { heartland: '#c3c084', desert: '#e3c68f', snow: '#e7ecef', blossom: '#cdd596', pinewood: '#8fa07a' };
@@ -70,7 +77,7 @@ function scrapShape(ctx, kind, s) {
 }
 
 export function createAtlasMap(ctx) {
-  const { renderer, world, wfc, traveller, follow, controls, daynight, progress, seed, quality } = ctx;
+  const { renderer, world, wfc, traveller, follow, controls, daynight, progress, seed, quality, game } = ctx;
   const A = { ...DEFAULTS, ...((CONFIG.game && CONFIG.game.atlasmap) || {}) };
   const P = CONFIG.palette || {};
   const PAPER = P.paper || '#efe0c2';
@@ -111,6 +118,7 @@ export function createAtlasMap(ctx) {
   const offs = [
     bus.on('game:explore', () => { cellsDirty = true; mapDirty = true; pageDirty = true; }),
     bus.on('game:collect', () => { pageDirty = true; }),
+    bus.on('game:treasure', () => { mapDirty = true; pageDirty = true; }),
     bus.on('game:lantern', (e) => { if (e && e.key !== undefined) lamps.set(e.key, [e.x / TILE_SIZE, e.z / TILE_SIZE]); mapDirty = true; pageDirty = true; }),
     bus.on('game:reset', () => { lamps.clear(); cellsDirty = true; mapDirty = true; pageDirty = true; }),
     bus.on('resize', () => { pageDirty = true; mapDirty = true; }),
@@ -419,7 +427,33 @@ export function createAtlasMap(ctx) {
     }
     const S = best.size; const rowH = S * 1.62;
     const legendH = best.rows.length * rowH + S * 0.25;
-    frame.x0 = margin; frame.y0 = margin; frame.x1 = W - margin; frame.y1 = H - margin * 0.75 - legendH;
+    const sites = game?.treasures?.sites || [];
+    frame.x0 = margin; frame.y0 = margin + (sites.length ? 6.6 * u : 0);
+    frame.x1 = W - margin; frame.y1 = H - margin * 0.75 - legendH;
+
+    if (sites.length) {
+      const width = avail / sites.length;
+      const seasons = CONFIG.game.treasures.seasons;
+      const player = traveller.position;
+      c.textAlign = 'center';
+      for (const [i, site] of sites.entries()) {
+        const x = margin + width * (i + 0.5);
+        const theme = seasons[site.id];
+        const found = progress.treasureDiscovered(site.id);
+        c.fillStyle = theme.color;
+        c.beginPath(); c.arc(x - 5.1 * u, margin + 0.15 * u, 0.64 * u, 0, 2 * Math.PI); c.fill();
+        c.fillStyle = INK;
+        c.font = `600 ${Math.max(9, 2.35 * u)}px "Microsoft YaHei", sans-serif`;
+        c.fillText(theme.title, x, margin + 0.95 * u, width * 0.92);
+        const clue = found ? (progress.treasureOpened(site.id) ? '已开启 · 地图标记' : '已发现 · 地图标记')
+          : directionTo(player.x, player.z, site.x, site.z) + '方 · ' + theme.landscape;
+        c.globalAlpha = 0.76;
+        c.font = `${Math.max(8, 1.95 * u)}px "Microsoft YaHei", sans-serif`;
+        c.fillText(clue, x, margin + 4.15 * u, width * 0.92);
+        c.globalAlpha = 1;
+      }
+      c.textAlign = 'start';
+    }
 
     // ---- neatline round the map
     c.strokeStyle = INK; c.globalAlpha = 0.8; c.lineWidth = Math.max(1, 0.2 * u);
@@ -616,6 +650,22 @@ export function createAtlasMap(ctx) {
       const x = X(p[0]); const y = Y(p[1]);
       if (x > -20 && y > -20 && x < TW + 20 && y < TH + 20) drawLamp(c, x, y, Math.max(2, mark * 0.07));
     }
+    for (const site of game?.treasures?.sites || []) {
+      if (!progress.treasureDiscovered(site.id)) continue;
+      const x = X(site.x / TILE_SIZE);
+      const y = Y(site.z / TILE_SIZE);
+      if (x < -20 || y < -20 || x > TW + 20 || y > TH + 20) continue;
+      const size = Math.max(6, mark * 0.19);
+      c.beginPath();
+      c.moveTo(x, y - size); c.lineTo(x + size, y); c.lineTo(x, y + size); c.lineTo(x - size, y); c.closePath();
+      c.fillStyle = CONFIG.game.treasures.seasons[site.id].color;
+      c.fill();
+      c.strokeStyle = INK; c.lineWidth = Math.max(1, size * 0.16); c.stroke();
+      if (progress.treasureOpened(site.id)) {
+        c.fillStyle = INK;
+        c.beginPath(); c.arc(x, y, size * 0.3, 0, Math.PI * 2); c.fill();
+      }
+    }
     const md = traveller.moveDir || { x: 0, z: -1 };
     drawPin(c, X(traveller.position.x / TILE_SIZE), Y(traveller.position.z / TILE_SIZE), mark * 0.8, md.x, md.z);
 
@@ -658,6 +708,7 @@ export function createAtlasMap(ctx) {
 
   function setOpen(v) {
     v = !!v;
+    if (v && game?.treasures?.open) return;
     if (v === want || headless) return;
     want = v;
     if (v) {
@@ -680,6 +731,7 @@ export function createAtlasMap(ctx) {
   const PAN = { KeyW: [0, -1], ArrowUp: [0, -1], KeyS: [0, 1], ArrowDown: [0, 1], KeyA: [-1, 0], ArrowLeft: [-1, 0], KeyD: [1, 0], ArrowRight: [1, 0] };
   let drag = null;
   function onKeyDown(e) {
+    if (game?.treasures?.open) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.code === 'Tab' || e.code === 'KeyE') {
       e.preventDefault();

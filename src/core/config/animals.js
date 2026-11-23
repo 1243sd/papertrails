@@ -60,14 +60,14 @@ export const animals = {
   slide: 0.85,
   shuffle: 0.62,
 
-  /**
-   * round 3 - the companion: ONE cat adopts the traveller. A cat of the place within `notice` trots over; when none has
-   * after `spawnAfter` seconds of looking, his own cat (`coat`) pops up a little way off and comes. It walks beside
-   * him, sits when he stops, naps after `nap` seconds of standing, stretches and hops along again. It leaves when it
-   * loses him (`lost`) or after `wild` seconds outside `biomes` (it sits and watches him go), and is back `away` +
-   * `back` seconds after he is on settled land again. `stills`: it sits beside him in settled stills.
-   */
-  companion: { enabled: false, /* user 2026-11-17: no companion */ species: 'cat', coat: 'cat_ginger', after: 4, notice: 2.4, spawnAfter: 12, nap: 9, behind: 1.1 /* farther than this for half a second: one paper leap to his heels */, lost: 4.6, away: 5, back: 4, wild: 4, biomes: ['heartland', 'blossom', 'pinewood'], stills: true },
+  /** Permanent companions. Formation offsets and catch-up distance are in world units. */
+  companion: {
+    enabled: true, species: 'cat', after: 0.8, nap: 9, catchUpDistance: 2.8, stills: true,
+    members: [
+      { id: 'black-cat', coat: 'cat_black', back: 0.85, side: -0.22 },
+      { id: 'tabby-cat', coat: 'cat_grey_stripe', back: 1.15, side: 0.22 },
+    ],
+  },
   /**
    * round 3 - vignettes (6th item of a spawn entry, see `spawns`): `sink` = how far a sitter sinks below the top of the
    * piece it sits on, `topK` = share of a tall piece's height an owl perches at, `doorSleep` = share of door cats that

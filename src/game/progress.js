@@ -6,8 +6,10 @@
 //   'game:lantern'  { key, x, z, count }                      a lamp was lit
 //   'game:reset'    {}
 import { bus } from '../core/events.js';
+import { CONFIG } from '../core/config.js';
 
-const blank = () => ({ cells: {}, scraps: {}, scrapCounts: {}, lanterns: {} });
+const blank = () => ({ cells: {}, scraps: {}, scrapCounts: {}, lanterns: {}, treasures: {} });
+const seasons = CONFIG.game.treasures.seasons;
 
 export function createProgress({ seed = 0, persist = true } = {}) {
   const KEY = 'popup-atlas:v1:' + seed;
@@ -27,15 +29,17 @@ export function createProgress({ seed = 0, persist = true } = {}) {
   let dirty = false;
   let timer = 0;
   function save() {
+    clearTimeout(timer);
     timer = 0;
     if (!persist || !dirty) return;
     dirty = false;
     try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* quota / private mode */ }
   }
   function touch() { dirty = true; if (persist && !timer) timer = setTimeout(save, 1500); }
+  const onVisibility = () => { if (document.hidden) save(); };
   if (persist && typeof window !== 'undefined') {
     window.addEventListener('pagehide', save);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+    document.addEventListener('visibilitychange', onVisibility);
   }
   const ck = (cx, cz) => cx + ',' + cz;
 
@@ -80,6 +84,32 @@ export function createProgress({ seed = 0, persist = true } = {}) {
     lit(key) { return !!data.lanterns[key]; },
     lanternCount() { return Object.keys(data.lanterns).length; },
 
+    treasureDiscovered(id) { return Object.hasOwn(seasons, id) && data.treasures[id] >= 1; },
+    discoverTreasure(id) {
+      if (!Object.hasOwn(seasons, id) || api.treasureDiscovered(id)) return false;
+      data.treasures[id] = 1;
+      touch();
+    bus.emit('game:treasure', { id });
+      return true;
+    },
+    treasureOpened(id) { return Object.hasOwn(seasons, id) && data.treasures[id] >= 2; },
+    openTreasure(id) {
+      if (!Object.hasOwn(seasons, id) || api.treasureOpened(id)) return false;
+      data.treasures[id] = 2;
+      dirty = true;
+      save();
+      bus.emit('game:treasure', { id });
+      return true;
+    },
+    revealWinterLetter() {
+      if (data.treasures.winter !== 2) return false;
+      data.treasures.winter = 3;
+      dirty = true;
+      save();
+      return true;
+    },
+    treasureCount() { return Object.keys(seasons).filter(api.treasureOpened).length; },
+
     /** Plain summary for the atlas page / debugging. */
     summary() {
       return { cells: api.cellCount(), scraps: { ...data.scrapCounts }, lanterns: api.lanternCount() };
@@ -89,6 +119,13 @@ export function createProgress({ seed = 0, persist = true } = {}) {
       data = blank();
       dirty = true; save();
       bus.emit('game:reset', {});
+    },
+    dispose() {
+      save();
+      if (persist && typeof window !== 'undefined') {
+        window.removeEventListener('pagehide', save);
+        document.removeEventListener('visibilitychange', onVisibility);
+      }
     },
   };
   return api;

@@ -16,6 +16,7 @@ import * as THREE from 'three';
 import { CONFIG } from '../core/config.js';
 import { bus } from '../core/events.js';
 import { state } from '../core/state.js';
+import { createWardrobe } from './wardrobe.js';
 // integration: V8's Math.hypot allocates (rest-argument array) on every call; this 2-argument form is allocation-free.
 const hypot2 = (a, b) => Math.sqrt(a * a + b * b);
 
@@ -157,6 +158,8 @@ export function createTraveller({ scene, assets, world, materials }) {
   rig.add(model);
   group.add(rig);
   scene.add(group);
+  const wardrobe = createWardrobe({ assets, materials, parts, rig, world, position: group.position });
+  if (armL) armLFactor = Math.min(armLFactor, 0.48);
 
   // ---- state ------------------------------------------------------------------------------------
   const velocity = new THREE.Vector3();
@@ -356,6 +359,7 @@ export function createTraveller({ scene, assets, world, materials }) {
     group,
     model,
     rig,
+    wardrobe,
     /** Named parts that were found and are animated: { leg_l: {part, pivot}, ... } */
     parts,
     /** World position (feet). Same object as group.position. */
@@ -559,7 +563,7 @@ export function createTraveller({ scene, assets, world, materials }) {
       }
       applyPose();
     },
-    dispose() { scene.remove(group); },
+    dispose() { wardrobe.dispose(); scene.remove(group); },
   };
   applyPose();
   return api;

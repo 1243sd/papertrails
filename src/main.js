@@ -62,6 +62,7 @@ async function boot() {
   // Gameplay progress is saved independently for each world seed.
   const game = createGame({ scene, renderer, world, wfc, traveller, follow, controls, lights, post, daynight, music, audio, life, assets, materials, seed, quality });
   follow.setAssistGate(game.modal);
+  controls.setInputGate(game.modal);
   // N: day / night, M: music on / off (keys only - no on-screen UI)
   window.addEventListener('keydown', (e) => {
     if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -84,8 +85,8 @@ async function boot() {
   function update(dt) {
     state.time = loop.time;
     state.frame = loop.frame;
-    const input = controls.getInput(dt) || idle;
-    traveller.update(dt, game.modal() ? idle : input); // No walking while the atlas page is open.
+    const input = game.modal() ? idle : controls.getInput(dt) || idle;
+    traveller.update(dt, input);
     const p = traveller.position;
     const t = state.traveller;
     t.x = p.x; t.y = p.y; t.z = p.z;
@@ -98,6 +99,7 @@ async function boot() {
     views.update(dt);
     follow.update(dt, traveller);
     daynight.update(dt);
+    traveller.wardrobe.update(dt, daynight.night, follow.camera);
     if (life) life.update(dt, p, follow.camera);
     if (animals) animals.update(dt);
     game.update(dt);

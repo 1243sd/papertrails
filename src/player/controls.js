@@ -305,8 +305,10 @@ export function createControls({ domElement, camera, traveller }) {
   let running = false;
   let strolling = false;
   let ctrlAlone = false;
+  let inputBlocked = () => false;
   const applySpeed = () => { state.speedMul = running ? (CONFIG.player.runMul ?? 1.8) : strolling ? (CONFIG.player.slowMul ?? 0.6) : 1; };
   const onModDown = (e) => {
+    if (inputBlocked()) return;
     if (e.key === 'Shift') { running = true; applySpeed(); }
     if (e.key === 'Control') { if (!e.repeat) ctrlAlone = true; } else ctrlAlone = false;
   };
@@ -317,8 +319,9 @@ export function createControls({ domElement, camera, traveller }) {
   window.addEventListener('keydown', onModDown);
   window.addEventListener('keyup', onModUp);
   const onKeyDown = (e) => {
-    if (!KEYS[e.code] || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (inputBlocked() || !KEYS[e.code] || e.metaKey || e.ctrlKey || e.altKey) return;
     e.preventDefault();
+    if (e.repeat) return;
     firstInput();
     down.add(e.code);
     if (target) dropTarget();
@@ -327,6 +330,7 @@ export function createControls({ domElement, camera, traveller }) {
   const onBlur = () => { down.clear(); activePointer = null; running = false; ctrlAlone = false; applySpeed(); };
   const onVisibility = () => { if (document.hidden) onBlur(); };
   const onPointerDown = (e) => {
+    if (inputBlocked()) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (activePointer !== null && e.pointerId !== activePointer) return; // second finger: ignore
     firstInput();
@@ -372,6 +376,12 @@ export function createControls({ domElement, camera, traveller }) {
     /** Current click-to-walk target {x,z} in world space, or null. */
     get target() { return target; },
     clearTarget() { if (target) dropTarget(); },
+    setInputGate(blocked) { inputBlocked = blocked; },
+    clearInput() {
+      if (activePointer !== null) onPointerUp({ pointerId: activePointer });
+      onBlur();
+      dropTarget();
+    },
     /** The inked target mark (THREE.Mesh on the page). */
     mark,
     /** @returns {{x:number,z:number}} desired WORLD-space move direction (length 0..1). W = -Z (north). */

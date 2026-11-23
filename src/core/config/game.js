@@ -1,6 +1,18 @@
 // Gameplay tunables (CONFIG.game). One section per feature module in src/game; each section is owned by that
 // module's agent. Read live, so values can be tuned from the console through __atlas.config.game.
 export const game = {
+  treasures: {
+    seasons: {
+      spring: { biome: 'blossom', title: '春日宝箱', color: '#e9a8b5', landscape: '开花的树林' },
+      summer: { biome: 'desert', title: '夏日宝箱', color: '#e5b75c', landscape: '金色沙地' },
+      autumn: { biome: 'heartland', title: '秋日宝箱', color: '#c98148', landscape: '村庄与草场' },
+      winter: { biome: 'snow', title: '冬日宝箱', promptTitle: '圣诞树下的宝藏', color: '#a9cce8', landscape: '积雪的树林' },
+    },
+    clearance: 0.32,
+    promptRadius: 2.2,
+    interactRadius: 1.7,
+    requireEarlierTreasures: false,
+  },
   // ---- scraps (src/game/scraps.js) -------------------------------------------------------------------------
   scraps: {
     /** Share of cells that MAY hold a biome scrap / a night-only star. With openOnly about 40 % of them find a spot:

@@ -314,8 +314,10 @@ export async function loadAssets({ materials, renderer, quality } = {}) {
   };
   const noTex = () => ({ paper: null, paperNormal: null, paperRough: null, manifest: null });
 
-  const [tilesGltf, travGltf, textures, meta] = await Promise.all([
+  const seasons = ['summer', 'autumn', 'winter'];
+  const [tilesGltf, travGltf, textures, meta, skinGltfs] = await Promise.all([
     loadGLTF(A.tilesUrl), loadGLTF(A.travellerUrl), loadTextures(A, anisotropy).catch(noTex), fetchJSON(A.metaUrl),
+    Promise.all(seasons.map((season) => loadGLTF(`./models/traveller-${season}.glb`))),
   ]);
 
   const protos = new Map();
@@ -372,6 +374,13 @@ export async function loadAssets({ materials, renderer, quality } = {}) {
   }
   const travFromGltf = !!traveller;
   if (!traveller) traveller = buildPlaceholderTraveller(materials);
+  const travellerSkins = new Map();
+  for (const [i, skin] of skinGltfs.entries()) {
+    const node = skin?.scene?.getObjectByName('traveller');
+    if (!node) continue;
+    adopt(node, 'traveller__', travMats);
+    travellerSkins.set(seasons[i], node);
+  }
 
   const n = MODEL_IDS.length;
   const source = fromGltf === n && travFromGltf ? 'gltf' : (fromGltf === 0 && !travFromGltf ? 'placeholder' : 'mixed');
@@ -385,6 +394,7 @@ export async function loadAssets({ materials, renderer, quality } = {}) {
       return protos.get(FALLBACK_MODEL);
     },
     traveller,
+    travellerSkins,
     textures,
     modelIds: [...MODEL_IDS],
     source,

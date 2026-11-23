@@ -2,6 +2,8 @@
 
 [Play Papertrails](https://xikhar.github.io/papertrails/)
 
+[本地四季宝藏玩法与 ZIP 格式](docs/treasure-pack.md)
+
 <img src="screenshots/hero.png" alt="Papertrails — a traveller exploring the paper world" width="100%">
 
 <img src="screenshots/village.png" alt="Papertrails — the paper village by day" width="100%">

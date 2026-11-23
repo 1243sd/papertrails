@@ -10,6 +10,7 @@ import { createProgress } from './progress.js';
 import { createScraps } from './scraps.js';
 import { createLanterns } from './lanterns.js';
 import { createAtlasMap } from './atlasmap.js';
+import { createTreasures } from './treasures.js';
 
 export function createGame(deps) {
   const { seed, traveller, persist = true } = deps;
@@ -24,7 +25,8 @@ export function createGame(deps) {
   game.scraps = createScraps(ctx);
   game.lanterns = createLanterns(ctx);
   game.atlasmap = createAtlasMap(ctx);
-  const parts = [game.scraps, game.lanterns, game.atlasmap];
+  game.treasures = createTreasures(ctx);
+  const parts = [game.scraps, game.lanterns, game.atlasmap, game.treasures];
   let lastCx = NaN;
   let lastCz = NaN;
 
@@ -37,8 +39,11 @@ export function createGame(deps) {
     for (const part of parts) part.update(dt);
   };
   game.settle = () => { for (const part of parts) if (part.settle) part.settle(); };
-  /** True while a full-screen game view (the atlas map) is open: walking input should be ignored. */
-  game.modal = () => !!(game.atlasmap && game.atlasmap.open);
-  game.dispose = () => { for (const part of parts) part.dispose(); };
+  /** True while a game overlay owns input. */
+  game.modal = () => !!(game.atlasmap.open || game.treasures.open);
+  game.dispose = () => {
+    for (const part of parts) part.dispose();
+    progress.dispose();
+  };
   return game;
 }
