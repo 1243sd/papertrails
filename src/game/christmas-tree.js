@@ -156,14 +156,16 @@ export function createChristmasTree(materials) {
 
   return {
     group,
-    update(dt) {
+    update(dt, reveal = 1) {
       time += dt;
-      star.material.color.copy(starColor).multiplyScalar(1.8 + 0.42 * Math.sin(time * 2 + 0.7));
+      star.material.color.copy(starColor).multiplyScalar((1.8 + 0.42 * Math.sin(time * 2 + 0.7)) * (0.2 + 0.8 * reveal));
       for (let i = 0; i < lights.count; i++) {
         const twinkle = 0.5 + 0.5 * Math.sin(time * (4.2 + (i % 3) * 0.63) + i * 2.17);
-        lights.setColorAt(i, color.copy(bulbColors[i % bulbColors.length]).multiplyScalar(0.44 + 2.2 * twinkle ** 2));
+        const on = THREE.MathUtils.smoothstep(reveal, i * 0.87 / lights.count, i * 0.87 / lights.count + 0.13);
+        lights.setColorAt(i, color.copy(bulbColors[i % bulbColors.length]).multiplyScalar((0.44 + 2.2 * twinkle ** 2) * (0.06 + 0.94 * on)));
       }
       lights.instanceColor.needsUpdate = true;
+      if (!snow.visible) return;
       for (let i = 0; i < snow.count; i++) {
         const angle = i * 2.39996;
         const radius = 0.22 + 1.53 * Math.sqrt(i / snow.count);

@@ -101,7 +101,7 @@ export function createTreasures({ world, materials, traveller, progress, seed, c
   const off = [bus.on('tile:rise', onRise), bus.on('tile:flat', onHide), bus.on('tile:despawn', onHide)];
   const root = treasureUI && globalThis.document?.getElementById('treasure-ui');
   const ui = root ? createTreasureUI(root, () => controls?.clearInput(), {
-    revealWinterLetter: () => progress.revealWinterLetter(),
+    onPack: (pack, status) => game?.winter?.setPack(pack, status),
   }) : null;
   let pending = null;
 
@@ -123,7 +123,10 @@ export function createTreasures({ world, materials, traveller, progress, seed, c
 
   function show(entry) {
     const { id } = entry.site;
-    ui.showTreasure(id, settings.seasons[id]);
+    if (id === 'winter') {
+      ui.prompt('');
+      game?.winter?.open(settings.seasons[id]);
+    } else ui.showTreasure(id, settings.seasons[id]);
   }
 
   function isLocked(id) {
@@ -132,16 +135,17 @@ export function createTreasures({ world, materials, traveller, progress, seed, c
   }
 
   function onKeyDown(event) {
-    if (event.code === 'Escape' && (pending || ui.open)) {
+    if (event.code === 'Escape' && (pending || ui.open || game?.winter?.active)) {
       event.preventDefault();
       event.stopImmediatePropagation();
       pending = null;
       ui.close();
+      game?.winter?.close();
       controls?.clearInput();
       return;
     }
     if (event.repeat || event.ctrlKey || event.metaKey || event.altKey
-      || game?.atlasmap?.open || pending || ui.open) return;
+      || game?.atlasmap?.open || pending || ui.open || game?.winter?.active) return;
     if (event.code === 'KeyI') {
       event.preventDefault();
       controls?.clearInput();
@@ -166,7 +170,7 @@ export function createTreasures({ world, materials, traveller, progress, seed, c
   return {
     sites: chests.map(({ site }) => site),
     treeSite,
-    get open() { return !!(pending || ui?.open); },
+    get open() { return !!(pending || ui?.open || game?.winter?.active); },
     update(dt) {
       for (const entry of chests) sync(entry, dt);
       if (!ui) return;
@@ -174,7 +178,7 @@ export function createTreasures({ world, materials, traveller, progress, seed, c
         show(pending);
         pending = null;
       }
-      const entry = pending || ui.open || game?.atlasmap?.open ? null : nearest(settings.promptRadius);
+      const entry = pending || ui.open || game?.winter?.active || game?.atlasmap?.open ? null : nearest(settings.promptRadius);
       if (!entry) { ui.prompt(''); return; }
       const { id } = entry.site;
       progress.discoverTreasure(id);

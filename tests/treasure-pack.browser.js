@@ -38,7 +38,31 @@ export async function checkTreasurePack() {
     assert(first.images['images/winter.png'].type === 'image/png', '图片未解码保存');
     await storage.replace(first);
     await reject(make(images, '{'), 'JSON');
-    await reject(make(images, JSON.stringify({ ...manifest, version: 2 })), '版本');
+    await reject(make(images, JSON.stringify({ ...manifest, version: 3 })), '版本');
+    const v2 = structuredClone(manifest);
+    v2.version = 2;
+    delete v2.treasures.winter.photo;
+    v2.treasures.winter.photos = [
+      { image: 'images/winter.png', caption: '下雪的那天' },
+      { image: 'images/another.png', caption: '<b>按纯文本处理</b>' },
+    ];
+    const makeV2 = (extra = []) => make([...images, ...extra], JSON.stringify(v2));
+    await reject(makeV2(), '缺少图片');
+    const modern = await readTreasurePack(makeV2([['images/another.png', png]]));
+    assert(modern.manifest.version === 2 && modern.images['images/another.png'].size === png.length
+      && modern.manifest.treasures.winter.photos[1].caption === '<b>按纯文本处理</b>', '多照片及各自说明未保留');
+    v2.treasures.winter.photos = Array(7).fill(v2.treasures.winter.photos[0]);
+    await reject(makeV2(), '6 张照片');
+    v2.treasures.winter.photos = [{ image: 'images/winter.png', caption: ' ' }];
+    await reject(makeV2(), '照片说明');
+    v2.treasures.winter.photos[0].caption = '照片';
+    delete v2.treasures.winter.letter;
+    assert(!(await readTreasurePack(makeV2())).manifest.treasures.winter.letter, '版本 2 应支持稍后补信');
+    v2.treasures.winter.videos = [{ video: 'videos/memory.webm', caption: '视频回忆' }];
+    await reject(makeV2(), '缺少视频');
+    await reject(makeV2([['videos/memory.webm', png]]), '视频格式与扩展名不符');
+    delete v2.treasures.winter.videos;
+    await reject(makeV2(Array.from({ length: 6 }, (_, i) => ['images/extra-' + i + '.png', png])), '9 张');
     await reject(make(images.slice(0, 3)), '缺少图片');
     await reject(make([...images, ['images/winter.png', strToU8('invalid')]]), '图片');
     await reject(make([...images, ['images/winter.png', png.slice(0, 24)]]), '解码');

@@ -106,17 +106,25 @@ try {
     } else if (message.method === 'Runtime.consoleAPICalled' && message.params.type === 'error') {
       errors.push(message.params.args.map((arg) => arg.value || arg.description).join(' '));
     } else if (message.method === 'Runtime.bindingCalled' && message.params.name === '__saveFrame') {
-      const name = message.params.payload;
+      const payload = message.params.payload;
       try {
+        const { name, pointer } = payload.startsWith('{') ? JSON.parse(payload) : { name: payload };
         assert(/^[a-z-]+\.png$/.test(name), 'Invalid screenshot filename');
+        if (pointer) {
+          await command('Input.dispatchMouseEvent', { type: 'mouseMoved', ...pointer });
+          await evaluate('window.__papertrailsTest.update(0); window.__papertrailsTest.render(0)');
+        }
         if (artifacts) {
           const { data: png } = await command('Page.captureScreenshot', { format: 'png' });
           await fs.writeFile(path.join(artifacts, name), Buffer.from(png, 'base64'));
         }
-        await command('Runtime.evaluate', { expression: 'window.__frameReady()' });
       } catch (error) {
         errors.push(error.message);
-        await command('Runtime.evaluate', { expression: 'window.__frameReady()' });
+      } finally {
+        // The outer evaluation may finish and close the socket before this acknowledgement replies.
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ id: ++id, method: 'Runtime.evaluate', params: { expression: 'window.__frameReady()' } }));
+        }
       }
     }
   };
@@ -154,8 +162,16 @@ try {
         try { return await Object.values(checks)[0](renderer); }
         finally { renderer.dispose(); renderer.forceContextLoss(); }
       })()`;
+  const winterExpression = (mobile) => `(async () => {
+    const { checkWinterStage } = await import('/tests/winter-scene.browser.js');
+    const capture = (name, pointer) => new Promise((resolve) => {
+      window.__frameReady = resolve;
+      window.__saveFrame(JSON.stringify({ name, pointer }));
+    });
+    await checkWinterStage(window.__papertrailsTest, capture, ${mobile});
+  })()`;
 
-  if (process.argv[2] !== 'game') {
+  if (process.argv[2] !== 'game' && process.argv[2] !== 'winter-scene') {
     await load(origin + '/__checks');
     for (const id of ['companions', 'treasure-sites', 'treasure-progress', 'treasure-pack', 'treasure-ui']) {
       if (process.argv[2] && process.argv[2] !== id) continue;
@@ -163,7 +179,7 @@ try {
       console.log(id + ':', typeof result === 'string' ? result : '通过');
     }
   }
-  if (!process.argv[2] || process.argv[2] === 'game') {
+  if (!process.argv[2] || ['game', 'winter-scene'].includes(process.argv[2])) {
     const url = origin + '/?seed=7&quality=low&mute=1&hint=0';
     for (const reloaded of [false, true]) {
       await load(url);
@@ -175,6 +191,19 @@ try {
         await wait(125);
       }
       assert(ready, 'Game did not finish booting');
+      if (!reloaded && process.argv[2] !== 'game') {
+        await command('Emulation.setDeviceMetricsOverride', { width: 1280, height: 720, deviceScaleFactor: 1, mobile: false });
+        await evaluate('new Promise(requestAnimationFrame)');
+        await evaluate(winterExpression(false));
+        await command('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: false });
+        await command('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+        await evaluate('new Promise(requestAnimationFrame)');
+        await evaluate(winterExpression(true));
+        await command('Emulation.setDeviceMetricsOverride', { width: 960, height: 610, deviceScaleFactor: 1, mobile: false });
+        await command('Emulation.setEmulatedMedia', { features: [] });
+        console.log('winter-scene: 横屏、竖屏及减少动态效果通过');
+        if (process.argv[2] === 'winter-scene') break;
+      }
       console.log('game:', await evaluate(expression(null, true, reloaded)));
     }
   }

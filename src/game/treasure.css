@@ -108,8 +108,7 @@
   z-index: 1;
   filter: drop-shadow(0 .12rem .12rem #4027204d);
 }
-.treasure-stage[data-scene="summer"] .treasure-stage-actor,
-.treasure-stage[data-scene="winter"] .treasure-stage-actor { height: clamp(9rem, 31vw, 17rem); bottom: -.3rem; }
+.treasure-stage[data-scene="summer"] .treasure-stage-actor { height: clamp(9rem, 31vw, 17rem); bottom: -.3rem; }
 .treasure-stage-weather { position: absolute; inset: 0; pointer-events: none; }
 .treasure-stage-trim { position: absolute; inset: 0; }
 .treasure-stage-trim::before, .treasure-stage-trim::after {
@@ -180,27 +179,6 @@
   clip-path: polygon(50% 0, 61% 32%, 81% 20%, 76% 46%, 100% 48%, 65% 74%, 51% 100%, 47% 75%, 7% 55%, 28% 47%, 18% 23%, 38% 34%);
   rotate: -29deg;
 }
-.treasure-stage-trim[data-season="winter"]::before {
-  left: .6rem;
-  top: 38%;
-  width: 2.8rem;
-  height: 2.1rem;
-  background:
-    radial-gradient(circle at 50% 49%, #b84644 0 10%, transparent 12%),
-    radial-gradient(circle at 41% 63%, #cf6354 0 9%, transparent 11%),
-    radial-gradient(ellipse 31% 18% at 69% 46%, #4c7a65 0 94%, transparent 100%),
-    radial-gradient(ellipse 33% 20% at 36% 33%, #38624f 0 94%, transparent 100%);
-  rotate: -22deg;
-}
-.treasure-stage-trim[data-season="winter"]::after {
-  right: 18%;
-  bottom: 1.2rem;
-  width: 1.6rem;
-  height: 1.75rem;
-  background: linear-gradient(65deg, #a97f42, #edd59a 60%, #c09b54);
-  clip-path: polygon(50% 0, 61% 37%, 100% 42%, 70% 64%, 77% 100%, 50% 79%, 23% 100%, 30% 64%, 0 42%, 39% 37%);
-  rotate: 12deg;
-}
 .treasure-stage-flake {
   position: absolute;
   top: -.85rem;
@@ -257,29 +235,6 @@
   mask-image: radial-gradient(transparent 19%, #1c2015 24%, transparent 67%);
   animation: stage-rays 3.7s ease-in-out infinite alternate;
 }
-[data-scene="winter"].treasure-stage::after { background: #d7ebe4; height: 10rem; }
-[data-scene="winter"] .treasure-stage-flake {
-  color: #f7f5dd;
-  border-radius: 50%;
-  width: calc(var(--size) * .38);
-  height: calc(var(--size) * .38);
-  box-shadow: 0 0 .13rem #527973;
-}
-[data-scene="winter"] .treasure-stage-flake:nth-of-type(4n) {
-  width: calc(var(--size) * .72);
-  height: calc(var(--size) * .72);
-  clip-path: polygon(42% 0, 58% 0, 58% 41%, 100% 41%, 100% 59%, 58% 59%, 58% 100%, 42% 100%, 42% 59%, 0 59%, 0 41%, 42% 41%);
-}
-.treasure-stage-fir {
-  position: absolute;
-  right: 2rem;
-  bottom: calc(100% - 2.7rem);
-  width: clamp(6.1rem, 16vh, 9rem);
-  height: auto;
-  pointer-events: none;
-  filter: drop-shadow(.14rem .3rem .15rem #112b2b74);
-  rotate: 3deg;
-}
 @keyframes stage-fall {
   from { translate: 0 0; rotate: 0deg; }
   to { translate: var(--drift) calc(100cqh + 1.5rem); rotate: 210deg; }
@@ -299,27 +254,27 @@
 }
 .treasure-content { position: relative; font-size: 1.06rem; line-height: 1.75; overflow-wrap: anywhere; }
 .treasure-header, .treasure-footer { position: relative; }
-.treasure-dialog:not([data-season="winter"], [data-season="import"]) .treasure-content {
+.treasure-dialog:not([data-season="import"]) .treasure-content {
   display: grid;
   grid-template-columns: minmax(0, .76fr) minmax(0, 1.55fr);
   align-items: start;
   gap: 1.35rem;
   min-height: 15.7rem;
 }
-.treasure-dialog:not([data-season="winter"], [data-season="import"]) .treasure-message {
+.treasure-dialog:not([data-season="import"]) .treasure-message {
   grid-area: 1 / 1;
   margin-top: .4rem;
 }
-.treasure-dialog:not([data-season="winter"], [data-season="import"]) .treasure-message::after {
+.treasure-dialog:not([data-season="import"]) .treasure-message::after {
   display: block;
   height: 9rem;
   content: "";
 }
-.treasure-dialog:not([data-season="winter"], [data-season="import"]) .treasure-photo {
+.treasure-dialog:not([data-season="import"]) .treasure-photo {
   grid-area: 1 / 2;
   rotate: 1.65deg;
 }
-.treasure-message, .winter-letter p { white-space: pre-wrap; }
+.treasure-message { white-space: pre-wrap; }
 .treasure-message { margin: 1rem auto 0; max-width: 60ch; animation: treasure-in .4s var(--out) 110ms both; }
 .treasure-photo {
   width: fit-content;
@@ -343,8 +298,6 @@
   font: 600 .88rem/1.4 "Microsoft YaHei", system-ui, sans-serif;
 }
 .treasure-footer { display: flex; align-items: end; justify-content: end; gap: .7rem; margin-top: 1.25rem; }
-.treasure-dialog[data-season="winter"] .treasure-footer { min-height: clamp(7.8rem, 15vw, 10rem); }
-.treasure-dialog[data-season="winter"] .treasure-footer .treasure-companions { margin-left: 36%; }
 .treasure-close { display: block; flex: none; padding: .44rem 1.05rem; }
 .treasure-companions {
   display: flex;
@@ -361,232 +314,14 @@
 .treasure-dialog :focus-visible { outline: 2px solid oklch(53% .085 58); outline-offset: 3px; }
 .treasure-dialog [data-error="true"] { color: oklch(42% .13 30); }
 
-.treasure-dialog[data-season="winter"] {
-  --ink: oklch(28% .039 152);
-  --fir: oklch(34% .062 153);
-  --wine: oklch(42% .116 22);
-  --gold: oklch(66% .094 79);
-  --paper-edge: 4.15rem 1.1rem 3.05rem 1.45rem / 2.6rem 1rem 2.5rem 1.4rem;
-  width: min(55rem, calc(100vw - 3rem));
-  translate: 0 clamp(.8rem, 3.7vh, 2.1rem);
-}
-[data-season="winter"] .treasure-scroll {
-  max-height: calc(100dvh - clamp(7.7rem, 23vh, 12rem));
-  box-shadow: 0 0 0 2px var(--fir), 0 6px 0 #274c43, 0 18px 60px #112c29b8;
-}
-[data-season="winter"] .treasure-paper {
-  border-color: var(--gold);
-  background:
-    radial-gradient(circle at 30% 20%, #fff2cd 0, transparent 45%),
-    radial-gradient(ellipse at 100% 0, #adcfc0, transparent 61%),
-    radial-gradient(ellipse at 9% 100%, #b8d9cd, transparent 58%),
-    repeating-linear-gradient(115deg, transparent 0 6px, oklch(59% .04 75 / .04) 6px 7px),
-    oklch(94% .026 84);
-  box-shadow: inset 0 0 0 5px oklch(98% .027 87), inset 0 0 0 6px var(--gold);
-}
-[data-season="winter"]::backdrop { background: oklch(17% .033 156 / .75); }
-[data-season="winter"] .treasure-caption { color: var(--wine); border-color: var(--gold); }
-[data-season="winter"] h2 {
-  position: relative;
-  padding: 0 3.75rem .75rem 0;
-  margin-bottom: 1.15rem;
-  border-bottom: 1px solid color-mix(in oklch, var(--gold), transparent 43%);
-  color: var(--fir);
-  font-size: clamp(1.55rem, 4vw, 2.5rem);
-}
-[data-season="winter"] .treasure-header > div:first-child { flex: 1; }
-[data-season="winter"] h2::after {
-  position: absolute;
-  top: 0;
-  right: 0;
-  display: grid;
-  place-items: center;
-  width: 2.7rem;
-  aspect-ratio: 1;
-  content: "❄" / "";
-  color: oklch(97% .028 90);
-  font: 1.58rem/1 Georgia, serif;
-  background: var(--fir);
-  border: 3px dotted oklch(95% .033 87);
-  outline: 1px solid var(--gold);
-  outline-offset: 2px;
-  rotate: 9deg;
-}
-[data-season="winter"] .treasure-content {
-  display: grid;
-  grid-template-columns: minmax(0, 1.32fr) minmax(0, 1fr);
-  align-items: start;
-  gap: clamp(.95rem, 3vw, 1.6rem);
-}
-.winter-letter {
-  position: relative;
-  max-width: 56ch;
-  padding: 1.55rem clamp(1.15rem, 3vw, 1.7rem) 1.6rem;
-  background:
-    radial-gradient(ellipse at 100% 100%, oklch(90% .048 86 / .65), transparent 52%),
-    oklch(99% .019 88);
-  border: 1px solid oklch(79% .065 78);
-  box-shadow: inset 0 0 0 6px oklch(98% .025 86), inset 0 0 0 7px oklch(83% .055 81),
-    0 2px 0 oklch(85% .046 79), 0 6px 16px oklch(36% .043 69 / .14);
-}
-.winter-letter::before {
-  position: absolute;
-  top: -.25rem;
-  left: -.3rem;
-  width: 2.4rem;
-  height: 1.8rem;
-  content: "";
-  background:
-    radial-gradient(circle at 43% 50%, oklch(54% .15 23) 0 .13rem, transparent .17rem),
-    radial-gradient(circle at 54% 63%, var(--wine) 0 .13rem, transparent .17rem),
-    radial-gradient(circle at 55% 39%, oklch(59% .14 24) 0 .12rem, transparent .16rem),
-    radial-gradient(ellipse 60% 100% at 100% 100%, var(--fir) 0 90%, transparent 100%) 0 .05rem / 1.23rem .55rem no-repeat,
-    radial-gradient(ellipse 100% 80% at 0 50%, oklch(45% .068 149) 0 90%, transparent 100%) 1.2rem .44rem / 1.08rem .55rem no-repeat,
-    radial-gradient(ellipse 80% 110% at 90% 0, oklch(49% .078 149) 0 90%, transparent 100%) .3rem .85rem / .95rem .66rem no-repeat;
-  rotate: -18deg;
-}
-.winter-letter::after {
-  position: absolute;
-  right: .1rem;
-  bottom: .04rem;
-  content: "✧" / "";
-  color: var(--gold);
-  background: oklch(98% .025 86);
-  font: 1.05rem/1 Georgia, serif;
-}
-.winter-letter p { margin: .25rem 0 .88rem; }
-.winter-letter p:first-child, .winter-letter .winter-signature { color: var(--wine); }
-.winter-letter .winter-signature { margin: 1.15rem 0 .15rem; text-align: right; }
-[data-season="winter"] .treasure-photo {
-  position: relative;
-  margin-top: .35rem;
-  padding: .5rem .5rem .8rem;
-  border: 1px solid oklch(80% .061 79);
-  background: oklch(98% .022 87);
-  box-shadow: 0 2px 0 oklch(83% .046 76), 0 6px 16px oklch(36% .043 69 / .14);
-}
-[data-season="winter"] .treasure-photo::before {
-  position: absolute;
-  top: -.41rem;
-  left: 50%;
-  width: min(4.75rem, 65%);
-  height: .86rem;
-  content: "";
-  background: repeating-linear-gradient(-45deg, oklch(45% .103 22 / .8) 0 5px, oklch(92% .049 77 / .89) 5px 9px);
-  translate: -50%;
-  rotate: -4deg;
-  pointer-events: none;
-}
-[data-season="winter"] .treasure-close { color: oklch(97% .027 88); background: var(--fir); border-color: var(--gold); }
-[data-season="winter"] .treasure-close:hover { background: oklch(40% .078 150); }
-.letter-envelope {
-  position: absolute;
-  z-index: 1;
-  top: 1.55rem;
-  left: 50%;
-  translate: -50%;
-  width: min(94%, 22rem);
-  aspect-ratio: 1.7;
-  display: grid;
-  place-items: center;
-  perspective: 38rem;
-  border-radius: .34rem;
-  background: oklch(30% .056 153);
-  border: 1px solid var(--gold);
-  box-shadow: 0 1rem 2.25rem oklch(22% .05 146 / .39);
-  pointer-events: none;
-  animation: envelope-in-out 1.85s var(--out) both;
-}
-.letter-envelope::after {
-  position: absolute;
-  inset: 0;
-  content: "";
-  border-radius: inherit;
-  background:
-    linear-gradient(28deg, oklch(41% .063 150) 49.5%, oklch(65% .075 83) 50%, transparent 50.6%),
-    linear-gradient(-28deg, oklch(38% .064 153) 49.5%, oklch(65% .075 83) 50%, transparent 50.6%);
-  clip-path: polygon(0 0, 50% 66%, 100% 0, 100% 100%, 0 100%);
-}
-.letter-flap {
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(140deg, oklch(46% .075 153), oklch(32% .06 154) 75%);
-  clip-path: polygon(0 0, 100% 0, 50% 68%);
-  transform-origin: top center;
-  animation: envelope-flap .68s var(--out) 430ms both;
-}
-.letter-seal {
-  z-index: 2;
-  display: grid;
-  place-items: center;
-  margin-top: 19%;
-  width: 2.8rem;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  color: oklch(92% .063 80);
-  background: radial-gradient(circle, oklch(53% .147 24) 55%, oklch(62% .143 25) 57%, var(--wine) 70%);
-  border: 1px solid oklch(63% .097 48);
-  box-shadow: 0 .28rem .45rem oklch(24% .068 22 / .51);
-  font-size: 1.4rem;
-  animation: seal-lift .43s var(--out) 385ms both;
-}
-.letter-insert {
-  position: absolute;
-  inset: 13% 7% 9%;
-  background: repeating-linear-gradient(0deg, transparent 0 12px, oklch(85% .057 80 / .46) 12px 13px), oklch(98% .033 87);
-  border: 1px solid var(--gold);
-  box-shadow: inset 0 0 0 5px oklch(98% .033 87), 0 0 12px oklch(26% .04 140 / .2);
-  animation: insert-lift .78s var(--out) 680ms both;
-}
-.letter-sparks {
-  position: absolute;
-  z-index: 3;
-  inset: -25%;
-  background:
-    radial-gradient(circle at 9% 43%, oklch(90% .115 86) 0 .16rem, transparent .22rem),
-    radial-gradient(circle at 17% 15%, oklch(85% .107 83) 0 .09rem, transparent .15rem),
-    radial-gradient(circle at 29% 35%, oklch(96% .07 87) 0 .16rem, transparent .23rem),
-    radial-gradient(circle at 43% 5%, oklch(89% .103 81) 0 .12rem, transparent .19rem),
-    radial-gradient(circle at 62% 14%, oklch(93% .095 85) 0 .19rem, transparent .26rem),
-    radial-gradient(circle at 74% 24%, oklch(87% .108 83) 0 .1rem, transparent .17rem),
-    radial-gradient(circle at 85% 13%, oklch(95% .07 88) 0 .16rem, transparent .23rem),
-    radial-gradient(circle at 94% 50%, oklch(86% .104 83) 0 .13rem, transparent .2rem),
-    radial-gradient(circle at 79% 70%, oklch(92% .09 85) 0 .1rem, transparent .17rem),
-    radial-gradient(circle at 17% 71%, oklch(92% .09 85) 0 .13rem, transparent .2rem);
-  animation: letter-sparks .83s var(--out) 650ms both;
-}
-[data-animate-letter="true"] .winter-letter { animation: letter-in .82s var(--out) 1.2s both; }
-[data-animate-letter="true"] .winter-letter p { animation: treasure-in .48s var(--out) calc(1.38s + var(--reveal-delay)) both; }
-[data-animate-letter="true"] .treasure-photo { animation: treasure-in .69s var(--out) 1.62s both; }
-[data-animate-letter="false"] .winter-letter, [data-season="winter"][data-animate-letter="false"] .treasure-photo { animation: none; }
-
 @keyframes treasure-in { from { opacity: 0; transform: translateY(.5rem); } to { opacity: 1; transform: none; } }
-@keyframes letter-in { from { opacity: 0; transform: translateY(1rem) rotate(-3deg) scale(.94); } to { opacity: 1; transform: none; } }
-@keyframes envelope-flap { from { transform: none; } to { transform: rotateX(174deg); } }
-@keyframes seal-lift { from { opacity: 1; transform: none; } to { opacity: 0; transform: translate(.35rem, -1.7rem) rotate(32deg) scale(.8); } }
-@keyframes insert-lift { from { transform: none; } to { transform: translateY(-61%) rotate(-8deg); } }
-@keyframes letter-sparks {
-  from { opacity: 0; transform: scale(.25); }
-  30% { opacity: 1; }
-  to { opacity: 0; transform: translateY(-28%) scale(1.14); }
-}
-@keyframes envelope-in-out {
-  0% { opacity: 0; transform: translateY(1.15rem) rotate(-6deg) scale(.91); }
-  23%, 68% { opacity: 1; transform: none; }
-  100% { opacity: 0; transform: translateY(.78rem) rotate(4deg) scale(.94); visibility: hidden; }
-}
 @media (max-width: 720px) {
-  [data-season="winter"] .treasure-content { grid-template-columns: 1fr; }
   .treasure-paper { padding-inline: 1.25rem; }
 }
 @media (max-width: 515px) {
-  .treasure-dialog:not([data-season="winter"], [data-season="import"]) .treasure-content { display: block; min-height: 0; }
-  .treasure-dialog:not([data-season="winter"], [data-season="import"]) .treasure-message::after { height: 6rem; }
-  .treasure-dialog[data-season="winter"] .treasure-footer .treasure-companions { margin-left: 33%; }
+  .treasure-dialog:not([data-season="import"]) .treasure-content { display: block; min-height: 0; }
+  .treasure-dialog:not([data-season="import"]) .treasure-message::after { height: 6rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .treasure-dialog[open], .treasure-dialog[data-animate-letter] .treasure-content * { animation: none; }
-  .letter-envelope { display: none; }
+  .treasure-dialog[open] { animation: none; }
 }

@@ -12,7 +12,7 @@ npm run dev
 打开 `http://127.0.0.1:5273/`。准备礼物时按 **I** 导入 ZIP，导入成功后按 **Esc** 回到游戏。
 
 - **Tab / E** 打开 Atlas。底图会直接用四个季节颜色的宝箱图标标记位置。顶部显示各季的方向或开启状态，已开启的宝箱图标会掀开箱盖。
-- 靠近宝箱后按 **F** 开启或重看。冬日宝箱藏在圣诞树里，靠近整棵树即可触发提示。第一次读到信件时有拆信动画，之后打开可直接阅读。
+- 靠近宝箱后按 **F** 开启或重看。冬日宝箱藏在圣诞树里，开启后进入全屏故事书。「爱的印记」可以浏览照片和视频。点击照片相框可放大，点击带播放标记的相框可播放视频。「冬日来信」首次打开会拆信并逐行显示正文，可选择「显示全文」或「合上信纸」。
 - 主角随地貌更换四套洛丽塔服装和四把洋伞。松林沿用秋装。按 **N** 切换昼夜，白天撑伞，夜里收伞作手杖。
 - 探索和查看地图时，鼠标旁会显示当前季节的花朵、太阳、枫叶或雪花。
 - **Esc** 或弹窗内的关闭按钮回到游戏。
@@ -27,11 +27,13 @@ npm run dev
 ```text
 treasure-pack.zip
 ├── manifest.json
-└── images/
-    ├── spring.webp
-    ├── summer.jpg
-    ├── autumn.png
-    └── winter.webp
+├── images/
+│   ├── spring.webp
+│   ├── summer.jpg
+│   ├── autumn.png
+│   └── winter.webp
+└── videos/
+    └── winter.mp4
 ```
 
 下面展示字段结构。导入前请换成你自己的标题、正文和照片。
@@ -39,7 +41,7 @@ treasure-pack.zip
 ```json
 {
   "format": "papertrails-treasure-pack",
-  "version": 1,
+  "version": 2,
   "title": "填入宝藏包标题",
   "treasures": {
     "spring": { "title": "春日标题", "message": "春日正文", "image": "images/spring.webp" },
@@ -47,7 +49,12 @@ treasure-pack.zip
     "autumn": { "title": "秋日标题", "message": "秋日正文", "image": "images/autumn.png" },
     "winter": {
       "title": "冬日标题",
-      "photo": "images/winter.webp",
+      "photos": [
+        { "image": "images/winter.webp", "caption": "填入这张照片的说明" }
+      ],
+      "videos": [
+        { "video": "videos/winter.mp4", "caption": "填入这段视频的说明" }
+      ],
       "letter": {
         "salutation": "信件称呼",
         "paragraphs": ["第一段正文", "第二段正文"],
@@ -62,8 +69,12 @@ treasure-pack.zip
 | --- | --- |
 | 压缩包 | 普通 ZIP，最多 20 MiB，解压后合计最多 40 MiB，共 20 个条目，含目录 |
 | 图片 | PNG、JPEG、WebP。单张最多 12 MiB，宽高各不超过 4096 像素 |
-| JSON | UTF-8，版本 1，最大 128 KiB |
+| JSON | UTF-8，版本 1 或 2，最大 128 KiB |
+| 冬季照片 | 版本 2 支持最多 6 张，每张说明最多 320 字符，整个 ZIP 最多 9 个图片文件 |
+| 冬季视频 | 版本 2 支持最多 3 段 MP4 或 WebM，放在 ZIP 根目录的 `videos/` 下，单段最多 18 MiB，每段说明最多 320 字符 |
 | 文字 | 标题、称呼和落款最多 140 字符，春夏秋正文各最多 2000 字符，冬季 1 至 30 段且每段最多 2400 字符 |
+
+版本 1 仍使用 `winter.photo` 指定单张照片，并保留原有信件格式。版本 2 至少提供一张照片或一段视频，也可以同时提供两种。可以先省略 `winter.letter`，等信件准备好后再导入完整 ZIP。视频会使用浏览器支持的编码在本地播放。
 
 ## 配置和验证
 

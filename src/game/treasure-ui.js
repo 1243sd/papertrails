@@ -3,7 +3,7 @@ import { createTreasureStorage } from './treasure-storage.js';
 import { createTreasureCompanions } from './treasure-companions.js';
 import { createTreasureStage } from './treasure-stage.js';
 
-export function createTreasureUI(root, onClose, { revealWinterLetter, storage = createTreasureStorage() }) {
+export function createTreasureUI(root, onClose, { onPack, storage = createTreasureStorage() } = {}) {
   const prompt = document.createElement('div');
   prompt.className = 'treasure-prompt';
   prompt.setAttribute('role', 'status');
@@ -37,7 +37,7 @@ export function createTreasureUI(root, onClose, { revealWinterLetter, storage = 
   const scroll = document.createElement('div');
   scroll.className = 'treasure-scroll';
   scroll.append(paper);
-  dialog.append(scroll, stage.crest);
+  dialog.append(scroll);
   root.append(prompt, dialog);
   const upload = document.createElement('input');
   upload.type = 'file';
@@ -70,66 +70,35 @@ export function createTreasureUI(root, onClose, { revealWinterLetter, storage = 
     const item = pack?.manifest.treasures[id];
     title.textContent = item?.title || theme.title;
     content.replaceChildren();
-    dialog.dataset.animateLetter = 'false';
     if (!item) {
       content.textContent = loading ? '正在取出礼物…' : '这份礼物还没放进去。';
       return;
     }
     const image = document.createElement('img');
-    image.alt = id === 'winter' ? '冬日纪念照片' : theme.title + '的照片';
-    imageUrl = URL.createObjectURL(pack.images[item.image || item.photo]);
+    image.alt = theme.title + '的照片';
+    imageUrl = URL.createObjectURL(pack.images[item.image]);
     image.src = imageUrl;
     const photo = document.createElement('figure');
     photo.className = 'treasure-photo';
     photo.append(image);
-    if (id !== 'winter') {
-      const text = document.createElement('p');
-      text.className = 'treasure-message';
-      text.textContent = item.message;
-      content.append(photo, text);
-      return;
-    }
-    const animate = !!revealWinterLetter?.();
-    dialog.dataset.animateLetter = String(animate);
-    if (animate) {
-      const envelope = document.createElement('div');
-      envelope.className = 'letter-envelope';
-      envelope.setAttribute('aria-hidden', 'true');
-      const insert = document.createElement('div');
-      insert.className = 'letter-insert';
-      const flap = document.createElement('div');
-      flap.className = 'letter-flap';
-      const seal = document.createElement('span');
-      seal.className = 'letter-seal';
-      seal.textContent = '❄';
-      const sparks = document.createElement('div');
-      sparks.className = 'letter-sparks';
-      envelope.append(insert, flap, seal, sparks);
-      content.append(envelope);
-    }
-    const letter = document.createElement('article');
-    letter.className = 'winter-letter';
-    const paragraphs = [item.letter.salutation, ...item.letter.paragraphs, item.letter.signature];
-    paragraphs.forEach((text, i) => {
-      const p = document.createElement('p');
-      p.textContent = text;
-      if (i === paragraphs.length - 1) p.className = 'winter-signature';
-      p.style.setProperty('--reveal-delay', Math.min(840, i * 105) + 'ms');
-      letter.append(p);
-    });
-    content.append(letter, photo);
+    const text = document.createElement('p');
+    text.className = 'treasure-message';
+    text.textContent = item.message;
+    content.append(photo, text);
   }
 
   storage.load().then((saved) => {
     if (disposed) return;
     loading = false;
     pack = saved;
+    onPack?.(pack, pack ? 'ready' : 'empty');
     if (shown) renderTreasure(shown.id, shown.theme);
     else if (!importing) status.textContent = currentStatus();
   }).catch((error) => {
     if (disposed) return;
     loading = false;
     storageError = error.message;
+    onPack?.(null, 'error');
     if (shown) renderTreasure(shown.id, shown.theme);
     else if (!importing) status.textContent = currentStatus();
   });
@@ -148,6 +117,7 @@ export function createTreasureUI(root, onClose, { revealWinterLetter, storage = 
       if (disposed) return;
       pack = loaded;
       storageError = '';
+      onPack?.(pack, 'ready');
       status.textContent = '已导入：' + pack.manifest.title;
       if (shown) renderTreasure(shown.id, shown.theme);
     } catch (error) {
@@ -188,13 +158,11 @@ export function createTreasureUI(root, onClose, { revealWinterLetter, storage = 
       shown = { id, theme };
       dialog.dataset.season = id;
       dialog.style.setProperty('--season-color', theme.color);
-      caption.textContent = id === 'winter' ? '冬日来信' : theme.title;
+      caption.textContent = theme.title;
       renderTreasure(id, theme);
       if (!dialog.open) dialog.showModal();
-      const stickers = id !== 'winter';
-      if (stickers) header.append(companions.element);
-      else footer.prepend(companions.element);
-      companions.show({ stickers });
+      header.append(companions.element);
+      companions.show();
       stage.show(id);
       scroll.scrollTop = 0;
       button.focus({ preventScroll: true });
@@ -213,7 +181,7 @@ export function createTreasureUI(root, onClose, { revealWinterLetter, storage = 
         status.textContent = currentStatus();
       }
       const description = document.createElement('p');
-      description.textContent = '导入后，四季的文字和照片会保存在此浏览器。';
+      description.textContent = '四季的文字、照片和冬季视频会保存在此浏览器。';
       content.replaceChildren(description, uploadLabel, status);
       if (!dialog.open) dialog.showModal();
       upload.focus();

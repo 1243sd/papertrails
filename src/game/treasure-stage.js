@@ -21,10 +21,6 @@ export function createTreasureStage() {
   element.className = 'treasure-stage';
   element.setAttribute('aria-hidden', 'true');
   element.hidden = true;
-  const crest = document.createElement('img');
-  crest.className = 'treasure-stage-fir';
-  crest.alt = '';
-  crest.hidden = true;
   const weather = document.createElement('div');
   weather.className = 'treasure-stage-weather';
   const canvas = document.createElement('canvas');
@@ -41,7 +37,6 @@ export function createTreasureStage() {
     generation++;
     cancelAnimationFrame(request);
     element.hidden = true;
-    crest.hidden = true;
     weather.replaceChildren();
   }
 
@@ -61,7 +56,7 @@ export function createTreasureStage() {
       leaf.className = 'treasure-stage-flake treasure-stage-catching-leaf';
       weather.append(leaf);
     }
-    const count = season === 'winter' ? 26 : 16;
+    const count = 16;
     for (let i = 0; i < count; i++) {
       const piece = document.createElement('i');
       piece.className = 'treasure-stage-flake';
@@ -80,10 +75,6 @@ export function createTreasureStage() {
     element.dataset.scene = season;
     delete element.dataset.pose;
     decorate(season);
-    if (season === 'winter') {
-      if (!crest.hasAttribute('src')) crest.src = `${BASE}winter-tree.webp`;
-      crest.hidden = false;
-    }
     element.hidden = false;
     canvas.hidden = true;
     const image = await sprites(season);
@@ -104,12 +95,11 @@ export function createTreasureStage() {
         context.drawImage(image, WIDTH * (frame % 6), HEIGHT * Math.floor(frame / 6), WIDTH, HEIGHT, 0, 0, WIDTH, HEIGHT);
         element.dataset.pose = pose;
       }
-      const rest = season === 'winter' ? 16 : 20;
-      canvas.style.left = (-30 + (rest + 30) * (1 - (1 - travel) ** 1.3)) + '%';
+      canvas.style.left = (-30 + 50 * (1 - (1 - travel) ** 1.3)) + '%';
       if (time < WALK_DURATION + (autumn ? 750 : 0)) request = requestAnimationFrame(update);
     }
     update(start);
   }
 
-  return { element, crest, show, hide };
+  return { element, show, hide };
 }

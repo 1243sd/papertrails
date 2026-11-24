@@ -11,6 +11,7 @@ import { createScraps } from './scraps.js';
 import { createLanterns } from './lanterns.js';
 import { createAtlasMap } from './atlasmap.js';
 import { createTreasures } from './treasures.js';
+import { createWinter } from './winter/index.js';
 
 export function createGame(deps) {
   const { seed, traveller, persist = true } = deps;
@@ -26,6 +27,7 @@ export function createGame(deps) {
   game.lanterns = createLanterns(ctx);
   game.atlasmap = createAtlasMap(ctx);
   game.treasures = createTreasures(ctx);
+  game.winter = deps.treasureUI === false ? null : createWinter(ctx);
   const parts = [game.scraps, game.lanterns, game.atlasmap, game.treasures];
   let lastCx = NaN;
   let lastCz = NaN;
@@ -43,6 +45,7 @@ export function createGame(deps) {
   game.modal = () => !!(game.atlasmap.open || game.treasures.open);
   game.dispose = () => {
     for (const part of parts) part.dispose();
+    game.winter?.dispose();
     progress.dispose();
   };
   return game;

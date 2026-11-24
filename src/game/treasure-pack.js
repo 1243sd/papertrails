@@ -4,6 +4,7 @@ const MiB = 1024 * 1024;
 export const PACK_LIMITS = {
   maxZipSize: 20 * MiB, maxExtractedSize: 40 * MiB, maxImageSize: 12 * MiB,
   maxFiles: 20, maxImageDimension: 4096,
+  maxWinterPhotos: 6, maxWinterVideos: 3, maxVideoSize: 18 * MiB,
 };
 const seasons = ['spring', 'summer', 'autumn', 'winter'];
 const mime = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
@@ -28,6 +29,11 @@ function safePath(path, directory = false) {
 function imageType(path) {
   const ext = path.match(/\.([a-z]+)$/i)?.[1].toLowerCase();
   return path.startsWith('images/') && safePath(path) && ext && Object.hasOwn(mime, ext) ? mime[ext] : null;
+}
+
+function videoType(path) {
+  const ext = path.match(/\.(mp4|webm)$/i)?.[1].toLowerCase();
+  return ext && path.startsWith('videos/') && safePath(path) ? 'video/' + ext : null;
 }
 
 function readEntries(bytes) {
@@ -70,8 +76,9 @@ function readEntries(bytes) {
     const directory = path.endsWith('/');
     if (!safePath(path, directory) || entries.has(path)) throw new Error('ZIP 包含无效或重复路径：' + path);
     const kind = (u32(p + 38) >>> 28) & 15;
-    if ((kind && kind !== 8 && kind !== 4) || (directory && !path.startsWith('images/'))
-      || (!directory && path !== 'manifest.json' && !imageType(path))) {
+    const video = videoType(path);
+    if ((kind && kind !== 8 && kind !== 4) || (directory && !/^(images|videos)\//.test(path))
+      || (!directory && path !== 'manifest.json' && !imageType(path) && !video)) {
       throw new Error('不支持的文件类型：' + path);
     }
     if (flags & 1) throw new Error('ZIP 不支持加密文件：' + path);
@@ -80,7 +87,8 @@ function readEntries(bytes) {
     if (!(flags & 8) && (u32(offset + 14) !== crc || u32(offset + 18) !== compressed || u32(offset + 22) !== size)) throw invalid();
     if (directory && size) throw invalid();
     if (path === 'manifest.json' && size > 128 * 1024) throw new Error('manifest.json 未压缩时不能超过 128 KiB。');
-    if (!directory && path !== 'manifest.json' && size > PACK_LIMITS.maxImageSize) throw new Error('图片超过 12 MiB：' + path);
+    if (video && size > PACK_LIMITS.maxVideoSize) throw new Error('视频超过 18 MiB：' + path);
+    if (!video && !directory && path !== 'manifest.json' && size > PACK_LIMITS.maxImageSize) throw new Error('图片超过 12 MiB：' + path);
     total += size;
     if (total > PACK_LIMITS.maxExtractedSize) throw new Error('ZIP 解压后总大小不能超过 40 MiB。');
     entries.set(path, { size, crc, method, directory, contents: bytes.subarray(start, dataEnd) });
@@ -132,7 +140,7 @@ function parseManifest(bytes) {
     return v;
   };
   if (!object(data) || data.format !== 'papertrails-treasure-pack') throw new Error('manifest.json 的 format 不正确。');
-  if (data.version !== 1) throw new Error('宝藏包版本不受支持，目前仅支持版本 1。');
+  if (data.version !== 1 && data.version !== 2) throw new Error('宝藏包版本不受支持，目前支持版本 1 和 2。');
   if (!object(data.treasures) || Object.keys(data.treasures).length !== seasons.length) throw new Error('宝藏包必须包含春、夏、秋、冬四季。');
   const title = text(data.title, '宝藏包标题', 140);
   const treasures = {};
@@ -140,17 +148,41 @@ function parseManifest(bytes) {
     const item = data.treasures[id];
     if (!object(item)) throw new Error('缺少或无法识别季节：' + id);
     const heading = text(item.title, id + '.title', 140);
-    const path = id === 'winter' ? item.photo : item.image;
-    if (typeof path !== 'string' || !imageType(path)) throw new Error(id + ' 的图片路径必须指向 images/ 下的 PNG、JPEG 或 WebP。');
-    if (id !== 'winter') treasures[id] = { title: heading, image: path, message: text(item.message, id + '.message', 2000) };
+    const image = (path) => {
+      if (typeof path !== 'string' || !imageType(path)) throw new Error(id + ' 的图片路径必须指向 images/ 下的 PNG、JPEG 或 WebP。');
+      return path;
+    };
+    if (id !== 'winter') treasures[id] = { title: heading, image: image(item.image), message: text(item.message, id + '.message', 2000) };
     else {
+      const artwork = {};
+      if (data.version === 1) artwork.photo = image(item.photo);
+      else {
+        const photos = item.photos === undefined ? [] : item.photos;
+        const videos = item.videos === undefined ? [] : item.videos;
+        if (!Array.isArray(photos) || photos.length > PACK_LIMITS.maxWinterPhotos) {
+          throw new Error('冬季最多支持 6 张照片。');
+        }
+        if (!Array.isArray(videos) || videos.length > PACK_LIMITS.maxWinterVideos) throw new Error('冬季最多支持 3 段视频。');
+        if (!photos.length && !videos.length) throw new Error('冬季至少需要一张照片或一段视频。');
+        artwork.photos = photos.map((photo, i) => {
+          if (!object(photo)) throw new Error('冬季第 ' + (i + 1) + ' 张照片的格式不正确。');
+          return { image: image(photo.image), caption: text(photo.caption, '冬季照片说明', 320) };
+        });
+        if (videos.length) artwork.videos = videos.map((video) => {
+          if (!object(video) || typeof video.video !== 'string' || !videoType(video.video)) {
+            throw new Error('冬季视频路径必须指向 videos/ 下的 MP4 或 WebM。');
+          }
+          return { video: video.video, caption: text(video.caption, '冬季视频说明', 320) };
+        });
+      }
       const letter = item.letter;
-      if (!object(letter) || !Array.isArray(letter.paragraphs) || !letter.paragraphs.length || letter.paragraphs.length > 30) {
+      const optional = data.version === 2 && letter === undefined;
+      if (!optional && (!object(letter) || !Array.isArray(letter.paragraphs) || !letter.paragraphs.length || letter.paragraphs.length > 30)) {
         throw new Error('冬季信件必须包含 1 至 30 段文字。');
       }
       treasures[id] = {
-        title: heading, photo: path,
-        letter: {
+        title: heading, ...artwork,
+        letter: optional ? undefined : {
           salutation: text(letter.salutation, '冬季称呼', 140),
           paragraphs: letter.paragraphs.map((p, i) => text(p, '冬季第 ' + (i + 1) + ' 段', 2400)),
           signature: text(letter.signature, '冬季落款', 140),
@@ -158,7 +190,11 @@ function parseManifest(bytes) {
       };
     }
   }
-  return { format: data.format, version: 1, title, treasures };
+  return { format: data.format, version: data.version, title, treasures };
+}
+
+export function winterPhotos(item) {
+  return item?.photos ?? (item?.photo ? [{ image: item.photo, caption: '' }] : []);
 }
 
 /** Check declared dimensions before asking the browser to allocate a decoded surface. */
@@ -203,6 +239,34 @@ function checkDimensions(width, height, path) {
   if (!width || !height || width > max || height > max) throw new Error('图片宽或高不能超过 4096 像素：' + path);
 }
 
+async function readVideo(bytes, type, path) {
+  const header = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (bytes.length < 12 || (type === 'video/mp4' ? header.getUint32(4) !== 0x66747970 : header.getUint32(0) !== 0x1a45dfa3)) {
+    throw new Error('视频格式与扩展名不符，或视频已损坏：' + path);
+  }
+  const blob = new Blob([bytes], { type });
+  const video = document.createElement('video');
+  const url = URL.createObjectURL(blob);
+  let timer;
+  try {
+    await new Promise((resolve, reject) => {
+      const fail = () => reject(new Error('视频无法读取，请检查浏览器是否支持该编码：' + path));
+      timer = setTimeout(fail, 6000);
+      video.onerror = fail;
+      video.onloadedmetadata = () => video.videoWidth && video.videoHeight ? resolve() : fail();
+      video.preload = 'metadata';
+      video.src = url;
+    });
+  } finally {
+    clearTimeout(timer);
+    video.onloadedmetadata = video.onerror = null;
+    video.removeAttribute('src');
+    video.load();
+    URL.revokeObjectURL(url);
+  }
+  return blob;
+}
+
 export async function readTreasurePack(file) {
   if (!file || file.size < 22) throw new Error('请选择有效的 ZIP 宝藏包。');
   if (file.size > PACK_LIMITS.maxZipSize) throw new Error('ZIP 压缩包不能超过 20 MiB。');
@@ -214,12 +278,30 @@ export async function readTreasurePack(file) {
   }
   if (!entries.has('manifest.json')) throw new Error('ZIP 根目录缺少 manifest.json。');
   const manifest = parseManifest(extract(entries.get('manifest.json'), 'manifest.json'));
-  const paths = new Set(Object.values(manifest.treasures).map((item) => item.image || item.photo));
+  if (manifest.version === 2 && [...entries.keys()].filter((path) => imageType(path)).length > 3 + PACK_LIMITS.maxWinterPhotos) {
+    throw new Error('版本 2 的 ZIP 最多允许 9 张图片。');
+  }
+  const videoFiles = [...entries.keys()].filter((path) => videoType(path));
+  if (manifest.version === 1 && videoFiles.length) throw new Error('视频需要版本 2 的宝藏包。');
+  if (videoFiles.length > PACK_LIMITS.maxWinterVideos) throw new Error('ZIP 最多允许 3 段视频。');
+  const paths = new Set([
+    ...seasons.slice(0, 3).map((id) => manifest.treasures[id].image),
+    ...winterPhotos(manifest.treasures.winter).map(({ image }) => image),
+  ]);
   for (const path of paths) if (!entries.has(path)) throw new Error('宝藏包缺少图片：' + path);
+  const videoPaths = new Set(manifest.treasures.winter.videos?.map(({ video }) => video));
+  for (const path of videoPaths) if (!entries.has(path)) throw new Error('宝藏包缺少视频：' + path);
   const images = {};
+  const videos = {};
   for (const [path, entry] of entries) {
     if (path === 'manifest.json' || entry.directory) continue;
     const bytes = extract(entry, path);
+    const video = videoType(path);
+    if (video) {
+      const blob = await readVideo(bytes, video, path);
+      if (videoPaths.has(path)) videos[path] = blob;
+      continue;
+    }
     const type = imageType(path);
     const size = imageDimensions(bytes, type);
     if (!size) throw new Error('图片格式与扩展名不符，或图片已损坏：' + path);
@@ -232,5 +314,5 @@ export async function readTreasurePack(file) {
     finally { bitmap.close(); }
     if (paths.has(path)) images[path] = blob;
   }
-  return { manifest, images };
+  return { manifest, images, videos };
 }

@@ -73,7 +73,7 @@ async function boot() {
   controls.setInputGate(game.modal);
   // N: day / night, M: music on / off (keys only - no on-screen UI)
   window.addEventListener('keydown', (e) => {
-    if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (game.winter?.active || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.code === 'KeyN') daynight.toggle();
     else if (e.code === 'KeyV' && !game.modal()) views.next();
     else if (e.code === 'KeyM') music.toggle();
@@ -95,6 +95,11 @@ async function boot() {
   function update(dt) {
     state.time = loop.time;
     state.frame = loop.frame;
+    if (game.winter?.active) {
+      place.hidden = true;
+      game.winter.update(dt);
+      return;
+    }
     const input = game.modal() ? idle : controls.getInput(dt) || idle;
     traveller.update(dt, input);
     const p = traveller.position;
@@ -130,6 +135,7 @@ async function boot() {
   }
 
   function render(dt) {
+    if (game.winter?.render()) return;
     post.setFocus(follow.focusPoint);
     post.render(dt);
     game.atlasmap.render(); // Drawn over the finished frame; no-op while closed.

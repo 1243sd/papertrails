@@ -17,7 +17,7 @@ function key(code, type = 'keydown') {
   window.dispatchEvent(new KeyboardEvent(type, { code, key: code === 'ShiftLeft' ? 'Shift' : code, bubbles: true, cancelable: true }));
 }
 
-async function fixturePack() {
+export async function fixturePack(version = 1) {
   const canvas = document.createElement('canvas');
   canvas.width = 480;
   canvas.height = 270;
@@ -41,18 +41,68 @@ async function fixturePack() {
     files['images/' + season + '.' + format] = new Uint8Array(await blob.arrayBuffer());
   }
   const manifest = {
-    format: 'papertrails-treasure-pack', version: 1, title: '浏览器验收样包',
+    format: 'papertrails-treasure-pack', version, title: '浏览器验收样包',
     treasures: {
       spring: { title: '春季测试', message: '春季测试文案', image: 'images/spring.png' },
       summer: { title: '夏季测试', message: '夏季测试文案', image: 'images/summer.jpeg' },
       autumn: { title: '秋季测试', message: '秋季测试文案', image: 'images/autumn.webp' },
       winter: {
         title: '雪夜来信', photo: 'images/winter.png',
-        letter: { salutation: '你好，', paragraphs: ['这是一封验收用的测试信。', '真实的信件和照片由你导入。'], signature: 'Papertrails' },
+        letter: {
+          salutation: '你好，',
+          paragraphs: [
+            '今晚雪落在窗沿，故事书里的灯一盏盏亮了。\n谢谢你陪我走过这些小小的日子。',
+            '我想起那些散着步就过完的傍晚，想起一回头就能看见你的时候。没有什么特别的大事，可每次想起来，都好像又走回那条亮着灯的小路。',
+            '如果冬天还有很长，我们就慢慢走。\n看雪从松枝上落下来，\n等镇上的窗户一扇一扇亮起来。',
+            '愿我们记得每一段温柔的时光，\n也愿接下来的每一个冬天，\n都有值得写进故事书的小事。',
+          ],
+          signature: 'Papertrails',
+        },
       },
     },
   };
-  return new File([zipSync({ 'manifest.json': strToU8(JSON.stringify(manifest)), ...files })], 'browser-test.zip', { type: 'application/zip' });
+  if (version === 2) {
+    const winter = manifest.treasures.winter;
+    delete winter.photo;
+    winter.photos = [
+      { image: 'images/winter.png', caption: '月光落在雪地上' },
+      { image: 'images/village-night.png', caption: '一起看过的风景' },
+      { image: 'images/village.png', caption: '把这个冬天写进故事书' },
+    ];
+    await Promise.all(['village-night.png', 'village.png'].map(async (name) => {
+      const response = await fetch(new URL('../screenshots/' + name, import.meta.url));
+      if (!response.ok) throw new Error('缺少照片验收素材 ' + name);
+      files['images/' + name] = new Uint8Array(await response.arrayBuffer());
+    }));
+    const stream = canvas.captureStream(20);
+    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
+    const recorded = new Promise((resolve, reject) => {
+      recorder.ondataavailable = ({ data }) => resolve(data);
+      recorder.onerror = reject;
+    });
+    recorder.start();
+    for (let i = 0; i < 5; i++) {
+      c.fillStyle = '#eecc91';
+      c.fillRect(180 + 17 * i, 50 + 13 * i, 7, 7);
+      await pause(95);
+    }
+    recorder.stop();
+    stream.getTracks().forEach((track) => track.stop());
+    files['videos/snow-night.webm'] = new Uint8Array(await (await recorded).arrayBuffer());
+    winter.videos = [{ video: 'videos/snow-night.webm', caption: '雪夜的小短片' }];
+  }
+  return new File([zipSync({ 'manifest.json': strToU8(JSON.stringify(manifest)), ...files }, { level: 0 })], 'browser-test.zip', { type: 'application/zip' });
+}
+
+export function goWinterChapter(dialog, index) {
+  while (Number(dialog.dataset.chapter) !== index) {
+    const current = Number(dialog.dataset.chapter);
+    const step = current + Math.sign(index - current);
+    const sign = dialog.querySelector(`[data-chapter-target="${step}"]:not([hidden])`);
+    assert(sign, '找不到下一块路标');
+    sign.click();
+    assert(Number(dialog.dataset.chapter) === step, '路标应切换到相邻章节');
+  }
 }
 
 export async function checkGame(app, capture, reloaded = false) {
@@ -60,6 +110,8 @@ export async function checkGame(app, capture, reloaded = false) {
   const { progress, treasures, atlasmap } = game;
   const canvas = document.getElementById('atlas');
   const dialog = document.querySelector('#treasure-ui dialog');
+  const winter = document.querySelector('.winter-book');
+  const chapter = (index) => goWinterChapter(winter, index);
   const activeCats = () => animals.list().filter((cat) => cat.comp && cat.shown);
   const apparel = new Set();
   const parasols = new Set();
@@ -83,8 +135,12 @@ export async function checkGame(app, capture, reloaded = false) {
     assert(progress.treasureCount() === 4 && progress.cellCount() > 4, '真实刷新后开箱或探索进度丢失');
     visit(winterApproach(treasures.sites.find((site) => site.id === 'winter')));
     key('KeyF');
-    await until(() => dialog.open && dialog.querySelector('img'));
-    assert(dialog.dataset.animateLetter === 'false' && dialog.textContent.includes('雪夜来信'), '刷新后应保留 ZIP 内容并直接显示已读过的冬季来信');
+    await until(() => winter.open && winter.querySelector('h2').textContent === '雪夜来信');
+    chapter(1);
+    await game.winter.photosReady;
+    assert(winter.querySelector('.winter-album-tools p').textContent.includes('月光落在雪地上'), '刷新后应保留多照片 ZIP');
+    chapter(2);
+    assert(winter.dataset.animateLetter === 'false' && winter.querySelector('.winter-letter'), '刷新后应直接显示已读过的冬季来信');
     key('Escape');
     return '整页刷新后保留四季开箱、探索进度、ZIP 内容和冬季重读状态';
   }
@@ -207,26 +263,61 @@ export async function checkGame(app, capture, reloaded = false) {
       step(47);
     } else step(78);
     key('KeyD', 'keyup');
+    if (site.id === 'winter') {
+      assert(winter.open && !dialog.open && game.modal() && traveller.position.distanceTo(feet) < .001, '冬季应进入独立绘本并锁定输入');
+      assert(document.querySelector('.treasure-prompt').hidden, '进入绘本后应隐藏地图开箱提示');
+      await game.winter.photosReady;
+      chapter(1);
+      assert(winter.querySelector('.winter-album-tools p').textContent === '冬日纪念照', '旧版单照片应进入相册');
+      assert(winter.dataset.animateLetter === 'false', '浏览照片时应保留首次拆信');
+      chapter(2);
+      assert(winter.dataset.animateLetter === 'true' && winter.querySelector('.winter-envelope'), '冬季首次应拆信');
+      const letter = winter.querySelector('.winter-reading');
+      const paper = letter.querySelector('.winter-letter-body');
+      const paragraph = letter.querySelectorAll('article p')[1];
+      assert(Number(paragraph.style.getPropertyValue('--line-count')) >= 2 && paragraph.style.clipPath.includes('100%'),
+        '信件应在正文逐行显现前隐藏文字');
+      assert(!letter.querySelector('h3') && getComputedStyle(winter.querySelector('h2')).visibility === 'hidden'
+        && getComputedStyle(paper).scrollbarWidth === 'none', '来信应隐藏标题和滚动条');
+      step(68);
+      assert(paragraph.style.clipPath === 'inset(0px 0px 50%)', '同一段的两行应分开显示');
+      assert(letter.querySelector('article') && !letter.querySelector('img'), '信件需使用纯文本段落');
+      const arrow = new KeyboardEvent('keydown', { code: 'ArrowDown', key: 'ArrowDown', bubbles: true, cancelable: true });
+      assert(letter.dispatchEvent(arrow), '打开长信件时应保留浏览器的键盘滚动');
+      step(240);
+      assert(paper.scrollHeight > paper.clientHeight && paper.scrollTop > 0, '长信应跟随显现进度自动向上滑动');
+      render(0);
+      await pause(1300);
+      await capture('winter-letter.png');
+      letter.querySelector('button:last-child').click();
+      assert(letter.hidden && winter.dataset.chapter === '1', '合上信纸应回到相册');
+      key('Escape');
+      assert(!winter.open && document.activeElement === canvas, 'Esc 应关闭绘本，并将焦点还给原画布');
+      key('KeyF');
+      chapter(2);
+      assert(winter.open && winter.dataset.animateLetter === 'false', '重读应直接展示信件');
+      key('Escape');
+      continue;
+    }
     assert(dialog.open && game.modal() && traveller.position.distanceTo(feet) < 0.001, '开箱时应停在原地：' + site.id);
     const image = dialog.querySelector('img');
     assert(image, '开箱未显示导入的照片：' + site.id);
     await image.decode();
-    if (site.id === 'winter') {
-      assert(dialog.dataset.animateLetter === 'true' && image.naturalWidth / image.naturalHeight === 480 / 270, '冬季首次应拆信并显示完整照片');
-      const arrow = new KeyboardEvent('keydown', { code: 'ArrowDown', key: 'ArrowDown', bubbles: true, cancelable: true });
-      assert(dialog.dispatchEvent(arrow), '打开长信件时应保留浏览器的键盘滚动');
-      render(0);
-      await pause(1600);
-      await capture('winter-letter.png');
-    }
     key('Escape'); assert(!dialog.open, 'ESC 无法关闭宝箱');
     key('KeyF');
-    assert(dialog.open && dialog.dataset.animateLetter === 'false', '重复开箱应直接查看内容');
+    assert(dialog.open && dialog.querySelector('img'), '重复开箱应直接查看内容');
     key('Escape');
   }
   assert(apparel.size === 4 && parasols.size === 4, '四季服装和伞需要独立造型');
   assert(progress.treasureCount() === 4, '重复查看影响开启数量');
   assert(animals.list().filter((cat) => cat.comp).length === 2 && animals.stats().live > 2, '跨季节后应保留双猫和环境动物');
+  key('KeyI');
+  const updated = new DataTransfer();
+  updated.items.add(await fixturePack(2));
+  input.files = updated.files;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  await until(() => dialog.textContent.includes('已导入：浏览器验收样包'));
+  key('Escape');
   const tree = treasures.treeSite;
   const stage = winterApproach(tree);
   visit(stage);
