@@ -24,8 +24,8 @@
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="/src/game/treasure.css" />
     <style>
-      html, body { cursor: none; margin: 0; height: 100%; overflow: hidden; background: #1c130d; }
-      canvas#atlas { cursor: none; position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #1c130d; }
+      canvas#atlas { cursor: var(--season-cursor, auto); position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
       /* The first-time controls fade after the player starts moving. */
       #hint {
         position: fixed; left: 0; right: 0; bottom: 4.5vh; text-align: center;
@@ -34,10 +34,21 @@
         pointer-events: none; user-select: none; opacity: 0; transition: opacity 1.4s ease;
       }
       #hint.on { opacity: 1; }
+      #current-place {
+        position: fixed; top: 1rem; left: 1rem;
+        padding: .48rem .75rem;
+        border: 1px solid #ab956c; border-radius: .22rem;
+        background: #f4e8cf; color: #513b30;
+        box-shadow: 0 2px 0 #44322148;
+        font: 600 .86rem/1.3 "Microsoft YaHei", system-ui, sans-serif;
+        pointer-events: none; user-select: none;
+      }
+      #current-place:empty { display: none; }
     </style>
   </head>
   <body>
     <canvas id="atlas" tabindex="0"></canvas>
+    <div id="current-place" role="status"></div>
     <div id="treasure-ui"></div>
     <div id="hint">WASD / click to walk &nbsp;·&nbsp; Shift run &nbsp;·&nbsp; Ctrl slow &nbsp;·&nbsp; Tab map &nbsp;·&nbsp; N night &nbsp;·&nbsp; M music &nbsp;·&nbsp; V view &nbsp;·&nbsp; F 宝箱 &nbsp;·&nbsp; I 导入</div>
     <script type="module" src="/src/main.js"></script>

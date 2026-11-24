@@ -24,6 +24,13 @@ import { createGame } from './game/index.js';
 import { createViews } from './camera/views.js';
 // Allocation-free two-dimensional length.
 const hypot2 = (a, b) => Math.sqrt(a * a + b * b);
+const placeNames = {
+  blossom: '春日花林',
+  desert: '夏日沙地',
+  heartland: '秋日田野',
+  pinewood: '雨雾松林 · 秋装',
+  snow: '冬日雪地',
+};
 
 const params = new URLSearchParams(location.search);
 const seedParam = parseInt(params.get('seed') ?? '', 10);
@@ -38,6 +45,7 @@ state.quality = quality;
 async function boot() {
   const canvas = document.getElementById('atlas');
   const hint = document.getElementById('hint');
+  const place = document.getElementById('current-place');
 
   const scene = new THREE.Scene();
   const { renderer, setSize: setRendererSize } = createRenderer({ canvas, quality });
@@ -81,6 +89,8 @@ async function boot() {
   // ---- one simulation tick (order is part of the contract) ------------------------------------
   const idle = { x: 0, z: 0 };
   const _right = new THREE.Vector3();
+  let cursorSeason;
+  let currentBiome;
 
   function update(dt) {
     state.time = loop.time;
@@ -100,9 +110,21 @@ async function boot() {
     follow.update(dt, traveller);
     daynight.update(dt);
     traveller.wardrobe.update(dt, daynight.night);
+    const biome = traveller.wardrobe.biome;
+    if (biome !== currentBiome) {
+      currentBiome = biome;
+      place.textContent = placeNames[biome] || '';
+    }
+    const season = traveller.wardrobe.season;
+    if (season && season !== cursorSeason) {
+      cursorSeason = season;
+      canvas.style.setProperty('--season-cursor', `url("${import.meta.env.BASE_URL}cursors/${season}.svg") 3 3, auto`);
+    }
     if (life) life.update(dt, p, follow.camera);
     if (animals) animals.update(dt);
     game.update(dt);
+    const hidePlace = game.modal();
+    if (place.hidden !== hidePlace) place.hidden = hidePlace;
     lights.update(dt, traveller, follow.camera);
     materials.update(dt);
   }

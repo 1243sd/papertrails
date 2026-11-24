@@ -80,15 +80,15 @@ export const GRADE = {
   blossom: {
     day: {
       lights: {
-        key: { color: '#ffe6cc', intensity: 2.9, elevationDeg: 62 }, // soft peach
-        fill: { color: '#c9b9da', intensity: 1.15 }, // lilac
-        hemi: { sky: '#fff1ec', ground: '#c4a6b8', intensity: 0.5 },
-        gobo: { key: 0.18, tint: 0.09 },
-        shadow: { lightSize: 0.32, leak: '#8c6c88' },
-        fade: { color: '#bc9ea4', colorRight: '#ac94a2', start: 6.5, end: 13.5, amount: 0.7 },
-        background: '#b0969e',
+        key: { color: '#fff7ed', intensity: 2.9, elevationDeg: 62 },
+        fill: { color: '#d7dfeb', intensity: 1.15 },
+        hemi: { sky: '#edf5ef', ground: '#b7c8ad', intensity: 0.5 },
+        gobo: { key: 0.18, tint: 0.045 },
+        shadow: { lightSize: 0.32, leak: '#79908a' },
+        fade: { color: '#a5b69f', colorRight: '#98aaa3', start: 6.5, end: 13.5, amount: 0.7 },
+        background: '#a3b59f',
       },
-      post: { exposure: 0.8, contrast: 1.05, saturation: 1.05, tint: [1.03, 0.98, 0.97], shadowTint: '#2a1832', aoTint: '#5a3848', greenDesat: 0.3, vignette: 0.1 },
+      post: { exposure: 0.8, contrast: 1.05, saturation: 1.05, tint: [0.98, 1.02, 1.01], shadowTint: '#243531', aoTint: '#41564a', greenDesat: 0.08, vignette: 0.1 },
     },
     night: {
       lights: { fade: { color: '#0b0d2e', colorRight: '#090a26' }, background: '#0a0b28' },

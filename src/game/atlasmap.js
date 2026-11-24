@@ -43,13 +43,13 @@ function directionTo(x, z, targetX, targetZ) {
 
 const INK = '#5a3a28';
 // flat ground tones (fallback patchwork when the book bake cannot be read)
-const BIOME_GROUND = { heartland: '#c3c084', desert: '#e3c68f', snow: '#e7ecef', blossom: '#cdd596', pinewood: '#8fa07a' };
+const BIOME_GROUND = { heartland: '#c3c084', desert: '#e3c68f', snow: '#e7ecef', blossom: '#a9c68d', pinewood: '#8fa07a' };
 // washes laid over the heartland print of SHARED tiles so each biome reads in its own colour: [blend, colour, alpha] ...
 const BIOME_WASH = {
   heartland: [],
   desert: [['color', '#dcb878', 0.85], ['source-over', '#ecd3a0', 0.3]],
   snow: [['color', '#c9d8ea', 0.9], ['source-over', '#f1f4f6', 0.58]],
-  blossom: [['color', '#b3c070', 0.3], ['source-over', '#f0c9c4', 0.1]],
+  blossom: [['color', '#8fb972', 0.4], ['source-over', '#e2efd3', 0.09]],
   pinewood: [['color', '#557250', 0.55], ['multiply', '#b9c7b0', 0.55]],
 };
 const SERIF = "Georgia, 'Times New Roman', serif";
@@ -254,6 +254,38 @@ export function createAtlasMap(ctx) {
     c.fillStyle = '#ffc45a'; c.strokeStyle = INK; c.lineWidth = Math.max(0.75, r * 0.3);
     c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill(); c.stroke();
   }
+
+  function drawTreasure(c, x, y, w, color, opened, season) {
+    const h = w * 0.6;
+    c.save();
+    c.translate(x, y);
+    c.lineWidth = Math.max(1.4, w * 0.052);
+    c.strokeStyle = '#5b3b2f';
+    c.fillStyle = '#fff1d8';
+    c.beginPath();
+    c.roundRect(-w * 0.62, -h * 0.82, w * 1.24, h * 1.76, w * 0.28);
+    c.fill();
+    c.fillStyle = color;
+    c.beginPath();
+    c.roundRect(-w / 2, -h * 0.09, w, h * 0.65, w * 0.09);
+    c.fill();
+    c.stroke();
+    c.fillStyle = opened ? '#a67a52' : color;
+    c.beginPath();
+    c.roundRect(-w / 2, opened ? -h * 0.62 : -h * 0.51, w, h * 0.38, [w * 0.13, w * 0.13, 0, 0]);
+    c.fill();
+    c.stroke();
+    c.fillStyle = '#5b3b2f';
+    c.fillRect(-w * 0.085, -h * 0.11, w * 0.17, h * 0.29);
+    c.textAlign = 'center';
+    c.textBaseline = 'top';
+    c.font = `700 ${Math.max(11, w * 0.53)}px "Microsoft YaHei", sans-serif`;
+    c.strokeStyle = '#fff1d8';
+    c.lineWidth = Math.max(3, w * 0.13);
+    c.strokeText(season, 0, h * 0.91);
+    c.fillText(season, 0, h * 0.91);
+    c.restore();
+  }
   function drawPin(c, x, y, size, dx, dz) {
     c.save();
     // small facing arrow on the ground
@@ -340,8 +372,14 @@ export function createAtlasMap(ctx) {
       cells.set(key(cx, cz), typeof biome === 'string' ? biome : 'heartland');
       if (cx < x0) x0 = cx; if (cx > x1) x1 = cx; if (cz < z0) z0 = cz; if (cz > z1) z1 = cz;
     });
-    const px = Math.round(traveller.position.x / TILE_SIZE); const pz = Math.round(traveller.position.z / TILE_SIZE);
-    if (!cells.size) { x0 = x1 = px; z0 = z1 = pz; }
+    const px = traveller.position.x / TILE_SIZE; const pz = traveller.position.z / TILE_SIZE;
+    x0 = Math.min(x0, px); x1 = Math.max(x1, px);
+    z0 = Math.min(z0, pz); z1 = Math.max(z1, pz);
+    for (const site of game?.treasures?.sites || []) {
+      const x = site.x / TILE_SIZE; const z = site.z / TILE_SIZE;
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x);
+      z0 = Math.min(z0, z); z1 = Math.max(z1, z);
+    }
     bounds.x0 = x0; bounds.x1 = x1; bounds.z0 = z0; bounds.z1 = z1;
     cellsDirty = false;
   }
@@ -350,6 +388,22 @@ export function createAtlasMap(ctx) {
   /** Centre on the traveller and zoom so the explored land fits round him (clamped). */
   function fitView() {
     const px = traveller.position.x / TILE_SIZE; const pz = traveller.position.z / TILE_SIZE;
+    const sites = game?.treasures?.sites;
+    if (sites?.length) {
+      let x0 = px; let x1 = px; let z0 = pz; let z1 = pz;
+      for (const site of sites) {
+        const x = site.x / TILE_SIZE; const z = site.z / TILE_SIZE;
+        x0 = Math.min(x0, x); x1 = Math.max(x1, x);
+        z0 = Math.min(z0, z); z1 = Math.max(z1, z);
+      }
+      const pad = 1 + A.fitPad * 2;
+      const required = Math.max(z1 - z0 + pad, (x1 - x0 + pad) / frameAspect());
+      view.fit = clamp(required, Math.max(A.minSpan, 8), A.maxSpan);
+      view.x = view.tx = (x0 + x1) / 2;
+      view.z = view.tz = (z0 + z1) / 2;
+      view.span = view.tspan = view.fit;
+      return;
+    }
     const hx = Math.max(px - bounds.x0, bounds.x1 - px) + 0.5 + A.fitPad;
     const hz = Math.max(pz - bounds.z0, bounds.z1 - pz) + 0.5 + A.fitPad;
     const span = clamp(Math.max(hz * 2, (hx * 2) / frameAspect()), Math.max(A.minSpan, 8), A.fitMax);
@@ -445,7 +499,7 @@ export function createAtlasMap(ctx) {
         c.fillStyle = INK;
         c.font = `600 ${Math.max(9, 2.35 * u)}px "Microsoft YaHei", sans-serif`;
         c.fillText(theme.title, x, margin + 0.95 * u, width * 0.92);
-        const clue = found ? (progress.treasureOpened(site.id) ? '已开启 · 地图标记' : '已发现 · 地图标记')
+        const clue = found ? (progress.treasureOpened(site.id) ? '已开启 · 可重看' : '已发现 · 待开启')
           : directionTo(player.x, player.z, site.x, site.z) + '方 · ' + theme.landscape;
         c.globalAlpha = 0.76;
         c.font = `${Math.max(8, 1.95 * u)}px "Microsoft YaHei", sans-serif`;
@@ -650,24 +704,16 @@ export function createAtlasMap(ctx) {
       const x = X(p[0]); const y = Y(p[1]);
       if (x > -20 && y > -20 && x < TW + 20 && y < TH + 20) drawLamp(c, x, y, Math.max(2, mark * 0.07));
     }
-    for (const site of game?.treasures?.sites || []) {
-      if (!progress.treasureDiscovered(site.id)) continue;
-      const x = X(site.x / TILE_SIZE);
-      const y = Y(site.z / TILE_SIZE);
-      if (x < -20 || y < -20 || x > TW + 20 || y > TH + 20) continue;
-      const size = Math.max(6, mark * 0.19);
-      c.beginPath();
-      c.moveTo(x, y - size); c.lineTo(x + size, y); c.lineTo(x, y + size); c.lineTo(x - size, y); c.closePath();
-      c.fillStyle = CONFIG.game.treasures.seasons[site.id].color;
-      c.fill();
-      c.strokeStyle = INK; c.lineWidth = Math.max(1, size * 0.16); c.stroke();
-      if (progress.treasureOpened(site.id)) {
-        c.fillStyle = INK;
-        c.beginPath(); c.arc(x, y, size * 0.3, 0, Math.PI * 2); c.fill();
-      }
-    }
     const md = traveller.moveDir || { x: 0, z: -1 };
     drawPin(c, X(traveller.position.x / TILE_SIZE), Y(traveller.position.z / TILE_SIZE), mark * 0.8, md.x, md.z);
+    const size = Math.max(19, span * ppc * 0.042);
+    for (const site of game?.treasures?.sites || []) {
+      const x = X(site.x / TILE_SIZE);
+      const y = Y(site.z / TILE_SIZE);
+      if (x < -size || y < -size || x > TW + size || y > TH + size) continue;
+      const theme = CONFIG.game.treasures.seasons[site.id];
+      drawTreasure(c, x, y, size, theme.color, progress.treasureOpened(site.id), theme.title[0]);
+    }
 
     g.tMap.needsUpdate = true;
     mapDirty = false;

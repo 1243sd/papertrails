@@ -143,16 +143,19 @@ export function createWardrobe({ assets, materials, parts, rig, world, position 
     return [part, mesh?.isMesh ? mesh.geometry : null];
   }));
   let season;
+  let biome;
   let active;
   let amount;
   let night = false;
   return {
     get season() { return season; },
+    get biome() { return biome; },
     get parasol() { return active?.group; },
     get umbrellaMode() { return night ? 'cane' : 'open'; },
     update(dt, isNight) {
       night = isNight;
-      const next = SEASON[world.biomeAt?.(position.x, position.z)] || 'spring';
+      biome = world.biomeAt?.(position.x, position.z);
+      const next = SEASON[biome] || 'spring';
       if (next !== season) {
         season = next;
         const costume = assets.travellerSkins?.get(season);

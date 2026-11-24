@@ -1416,8 +1416,8 @@ export function createWorld({ scene, assets, wfc, materials, quality }) {
     surfaceAt(x, z) { return SURFACES[classify(x, z)]; },
     /** WFC cell record for a cell coordinate. */
     tileAt(cx, cz) { return cellAt(cx, cz); },
-    /** Biome id ('heartland' | 'desert' | 'snow' | 'blossom' | 'pinewood') at WORLD position (x, z). Pure, allocation-free. */
-    biomeAt(x, z) { return biomeIdAt(wfc.seed, Math.round(x / TILE_SIZE), Math.round(z / TILE_SIZE)); },
+    /** Biome at the exact world position, matching the point sampled by the lighting and weather. */
+    biomeAt(x, z) { return biomeIdAt(wfc.seed, x / TILE_SIZE, z / TILE_SIZE); },
     /** Live tile instances: [{key,cx,cz,cell,group,fold,shown}] (a copy of the list). */
     activeTiles() { return activeList.slice(); },
     stats() {

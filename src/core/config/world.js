@@ -120,10 +120,9 @@ export const world = {
       path: { color: '#b0c0da', edge: '#a3b3cf', amount: 1.9 /* 0.9 + mask gain, see book.js */, edgeAmount: 0.3 }, // fixer pass: trodden snow ~9 % darker than the snow (was a blue-grey asphalt slab)
     },
     blossom: {
-      ground: { hue: 14, sat: 1.15, tint: '#9cc468', amount: 0.3, gain: 1.6, lift: 0.55, keepWater: 0.9 },
-      // look pass: hue -13 -> -5, amount 0.16 -> 0.07: generic bushes / reeds were turning red-pink
-      prop: { hue: -5, sat: 1.04, tint: '#f7bfcd', amount: 0.07, gain: 1.0, lift: 0.35, keepWater: 0.9 },
-      path: { color: '#f1e3c2', edge: '#b3975f', amount: 0.6, edgeAmount: 0.3 }, // cream garden path (the ground tint turned it lime)
+      ground: { hue: 20, sat: 1.06, tint: '#8fc47d', amount: 0.68, gain: 1.28, lift: 0.50, keepWater: 0.9 },
+      prop: { hue: 13, sat: 0.89, tint: '#a7ca8c', amount: 0.19, gain: 1.1, lift: 0.30, keepWater: 0.9 },
+      path: { color: '#f3ead8', edge: '#a8997c', amount: 0.72, edgeAmount: 0.25 },
     },
     pinewood: {
       ground: { hue: 10, sat: 0.9, tint: '#55766a', amount: 0.62, gain: 1.6, lift: 0.5, keepWater: 0.7 },

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { zipSync, strToU8 } from 'fflate';
+import { TILE_SIZE } from '../src/core/config.js';
 
 const assert = (ok, message) => { if (!ok) throw new Error(message); };
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -119,6 +120,19 @@ export async function checkGame(app, capture, reloaded = false) {
 
   key('Tab'); atlasmap.settle();
   assert(atlasmap.open && atlasmap.debug.page && atlasmap.debug.map, 'Tab 无法打开原有地图');
+  const { map, frame, win } = atlasmap.debug;
+  const mapContext = map.getContext('2d');
+  const mapView = atlasmap.view;
+  const ratio = (frame.x1 - frame.x0) / (frame.y1 - frame.y0);
+  for (const site of treasures.sites) {
+    assert(!progress.treasureDiscovered(site.id), '应验证尚未发现的宝箱标记');
+    const x = site.x / TILE_SIZE;
+    const z = site.z / TILE_SIZE;
+    assert(Math.abs(x - mapView.x) < mapView.span * ratio / 2 && Math.abs(z - mapView.z) < mapView.span / 2, '首次打开地图应把宝箱纳入视野');
+    const pixel = mapContext.getImageData(Math.round((x - win.x) * win.ppc + map.width / 2),
+      Math.round((z - win.z) * win.ppc + map.height / 2), 1, 1).data;
+    assert(pixel[3] === 255 && pixel[0] === 91 && pixel[1] === 59 && pixel[2] === 47, '未发现的宝箱也应画出锁扣图标');
+  }
   render(0);
   await capture('atlas.png');
   key('KeyE'); step(45); assert(!atlasmap.open, 'E 无法关闭地图');
@@ -133,6 +147,21 @@ export async function checkGame(app, capture, reloaded = false) {
   key('KeyW'); step(205); key('KeyW', 'keyup'); step(95);
   assert(traveller.position.z < -5.3 && activeCats().every((cat) => cat.z < -4.25)
     && activeCats().map((cat) => cat.companionId).join(',') === bridgeCats.join(','), '主角过桥后原来的两只猫都应该跟上');
+
+  visit({ x: 0, z: -18 });
+  const place = document.getElementById('current-place');
+  const autumnMesh = traveller.parts.body.part.geometry;
+  assert(place.textContent === '雨雾松林 · 秋装' && traveller.wardrobe.biome === 'pinewood' && traveller.wardrobe.season === 'autumn',
+    '雨雾松林应显示自己的地貌名并使用秋装');
+  render(0);
+  await capture('pinewood.png');
+
+  // On seed 7 the spring boundary crosses this tile before its centre.
+  visit({ x: 3, z: 16.75 });
+  assert(traveller.wardrobe.season === 'spring' && getComputedStyle(canvas).cursor.includes('/cursors/spring.svg'),
+    '踏入春季边缘就应换上春装和春季光标');
+  assert(place.textContent === '春日花林' && traveller.parts.body.part.geometry !== autumnMesh,
+    '进入春日花林应切换地貌名和实际衣服模型');
 
   key('KeyI'); assert(dialog.open && game.modal(), 'I 应打开导入弹窗');
   const input = dialog.querySelector('input[type=file]');
@@ -151,6 +180,17 @@ export async function checkGame(app, capture, reloaded = false) {
   for (const site of treasures.sites) {
     visit(site.id === 'winter' ? winterApproach(site) : site);
     assert(traveller.wardrobe.season === site.id, '进入季节时主角造型未切换：' + site.id);
+    if (site.id === 'spring') {
+      render(0);
+      await capture('spring-wardrobe.png');
+    }
+    const cursor = getComputedStyle(canvas).cursor;
+    const cursorURL = cursor.match(/url\("([^"]+)"\)/)?.[1];
+    assert(cursorURL?.endsWith('/cursors/' + site.id + '.svg') && cursor.endsWith('auto'), '探索光标应按季节切换并保留默认光标：' + site.id);
+    const cursorImage = new Image();
+    cursorImage.src = cursorURL;
+    await cursorImage.decode();
+    assert(cursorImage.naturalWidth === 32, '季节光标图应可加载');
     apparel.add(traveller.parts.body.part.geometry.attributes.position.count);
     parasols.add(traveller.wardrobe.parasol.getObjectByName('parasol-canopy').geometry.attributes.position.count);
     const held = traveller.wardrobe.parasol.getObjectByName('parasol-open');
