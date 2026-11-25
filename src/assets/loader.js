@@ -375,6 +375,8 @@ export async function loadAssets({ materials, renderer, quality } = {}) {
   const travFromGltf = !!traveller;
   if (!traveller) traveller = buildPlaceholderTraveller(materials);
   const travellerSkins = new Map();
+  // The overworld re-parents the base traveller and swaps its clothing geometries.
+  travellerSkins.set('spring', traveller.clone(true));
   for (const [i, skin] of skinGltfs.entries()) {
     const node = skin?.scene?.getObjectByName('traveller');
     if (!node) continue;

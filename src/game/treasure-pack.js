@@ -4,9 +4,10 @@ const MiB = 1024 * 1024;
 export const PACK_LIMITS = {
   maxZipSize: 20 * MiB, maxExtractedSize: 40 * MiB, maxImageSize: 12 * MiB,
   maxFiles: 20, maxImageDimension: 4096,
-  maxWinterPhotos: 6, maxWinterVideos: 3, maxVideoSize: 18 * MiB,
+  maxAutumnPhotos: 2, maxWinterPhotos: 6, maxWinterVideos: 3, maxVideoSize: 18 * MiB,
 };
 const seasons = ['spring', 'summer', 'autumn', 'winter'];
+const autumnPhotoChapters = ['firstMeeting', 'newYear', 'livingTogether'];
 const mime = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
 const utf8 = new TextDecoder('utf-8', { fatal: true });
 const crcTable = Uint32Array.from({ length: 256 }, (_, i) => {
@@ -130,17 +131,55 @@ function extract(entry, path) {
   return output;
 }
 
+const object = (v) => v && typeof v === 'object' && !Array.isArray(v);
+function text(v, name, max) {
+  if (typeof v !== 'string' || !v.trim() || v.length > max) throw new Error(name + ' 必须是非空文字，且最多 ' + max + ' 个字符。');
+  return v;
+}
+
+function parseAutumnMemories(value, image) {
+  const name = 'autumn.memories';
+  const optionalText = (v, field, max) => v === undefined ? undefined : text(v, name + '.' + field, max);
+  if (!object(value)) throw new Error(name + ' 必须是对象。');
+  const memories = {};
+  if (value.firstChat !== undefined) {
+    if (!object(value.firstChat)) throw new Error(name + '.firstChat 必须是对象。');
+    memories.firstChat = { sticker: image(value.firstChat.sticker) };
+  }
+  for (const chapter of autumnPhotoChapters) {
+    if (value[chapter] === undefined) continue;
+    const item = value[chapter];
+    const field = name + '.' + chapter + '.photos';
+    if (!object(item) || !Array.isArray(item.photos) || item.photos.length > PACK_LIMITS.maxAutumnPhotos) {
+      throw new Error(field + ' 必须是数组，最多支持 2 张照片。');
+    }
+    memories[chapter] = {
+      photos: item.photos.map((photo, i) => {
+        if (!object(photo)) throw new Error(field + ' 的第 ' + (i + 1) + ' 张照片格式不正确。');
+        return { image: image(photo.image), caption: optionalText(photo.caption, chapter + '.photos.caption', 320) };
+      }),
+    };
+  }
+  if (value.letter !== undefined) {
+    const { letter } = value;
+    if (!object(letter) || !Array.isArray(letter.paragraphs) || letter.paragraphs.length > 30) {
+      throw new Error(name + '.letter.paragraphs 必须是数组，最多支持 30 段文字。');
+    }
+    memories.letter = {
+      salutation: optionalText(letter.salutation, 'letter.salutation', 140),
+      paragraphs: letter.paragraphs.map((p, i) => text(p, name + '.letter.paragraphs 第 ' + (i + 1) + ' 段', 2400)),
+      signature: optionalText(letter.signature, 'letter.signature', 140),
+    };
+  }
+  return memories;
+}
+
 function parseManifest(bytes) {
   let data;
   try { data = JSON.parse(utf8.decode(bytes)); }
   catch { throw new Error('manifest.json 必须是有效的 UTF-8 JSON。'); }
-  const object = (v) => v && typeof v === 'object' && !Array.isArray(v);
-  const text = (v, name, max) => {
-    if (typeof v !== 'string' || !v.trim() || v.length > max) throw new Error(name + ' 必须是非空文字，且最多 ' + max + ' 个字符。');
-    return v;
-  };
   if (!object(data) || data.format !== 'papertrails-treasure-pack') throw new Error('manifest.json 的 format 不正确。');
-  if (data.version !== 1 && data.version !== 2) throw new Error('宝藏包版本不受支持，目前支持版本 1 和 2。');
+  if (![1, 2, 3].includes(data.version)) throw new Error('宝藏包版本不受支持，目前支持版本 1、2 和 3。');
   if (!object(data.treasures) || Object.keys(data.treasures).length !== seasons.length) throw new Error('宝藏包必须包含春、夏、秋、冬四季。');
   const title = text(data.title, '宝藏包标题', 140);
   const treasures = {};
@@ -152,8 +191,12 @@ function parseManifest(bytes) {
       if (typeof path !== 'string' || !imageType(path)) throw new Error(id + ' 的图片路径必须指向 images/ 下的 PNG、JPEG 或 WebP。');
       return path;
     };
-    if (id !== 'winter') treasures[id] = { title: heading, image: image(item.image), message: text(item.message, id + '.message', 2000) };
-    else {
+    if (id !== 'winter') {
+      treasures[id] = { title: heading, image: image(item.image), message: text(item.message, id + '.message', 2000) };
+      if (id === 'autumn' && data.version === 3 && item.memories !== undefined) {
+        treasures[id].memories = parseAutumnMemories(item.memories, image);
+      }
+    } else {
       const artwork = {};
       if (data.version === 1) artwork.photo = image(item.photo);
       else {
@@ -176,7 +219,7 @@ function parseManifest(bytes) {
         });
       }
       const letter = item.letter;
-      const optional = data.version === 2 && letter === undefined;
+      const optional = data.version !== 1 && letter === undefined;
       if (!optional && (!object(letter) || !Array.isArray(letter.paragraphs) || !letter.paragraphs.length || letter.paragraphs.length > 30)) {
         throw new Error('冬季信件必须包含 1 至 30 段文字。');
       }
@@ -278,16 +321,23 @@ export async function readTreasurePack(file) {
   }
   if (!entries.has('manifest.json')) throw new Error('ZIP 根目录缺少 manifest.json。');
   const manifest = parseManifest(extract(entries.get('manifest.json'), 'manifest.json'));
-  if (manifest.version === 2 && [...entries.keys()].filter((path) => imageType(path)).length > 3 + PACK_LIMITS.maxWinterPhotos) {
-    throw new Error('版本 2 的 ZIP 最多允许 9 张图片。');
+  const files = [...entries.keys()];
+  const imageLimit = manifest.version === 3 ? 16 : 3 + PACK_LIMITS.maxWinterPhotos;
+  if (manifest.version !== 1 && files.filter((path) => imageType(path)).length > imageLimit) {
+    throw new Error('版本 ' + manifest.version + ' 的 ZIP 最多允许 ' + imageLimit + ' 张图片。');
   }
-  const videoFiles = [...entries.keys()].filter((path) => videoType(path));
-  if (manifest.version === 1 && videoFiles.length) throw new Error('视频需要版本 2 的宝藏包。');
+  const videoFiles = files.filter((path) => videoType(path));
+  if (manifest.version === 1 && videoFiles.length) throw new Error('视频需要版本 2 或 3 的宝藏包。');
   if (videoFiles.length > PACK_LIMITS.maxWinterVideos) throw new Error('ZIP 最多允许 3 段视频。');
   const paths = new Set([
     ...seasons.slice(0, 3).map((id) => manifest.treasures[id].image),
     ...winterPhotos(manifest.treasures.winter).map(({ image }) => image),
   ]);
+  const memories = manifest.treasures.autumn.memories;
+  if (memories?.firstChat) paths.add(memories.firstChat.sticker);
+  for (const chapter of autumnPhotoChapters) {
+    for (const photo of memories?.[chapter]?.photos ?? []) paths.add(photo.image);
+  }
   for (const path of paths) if (!entries.has(path)) throw new Error('宝藏包缺少图片：' + path);
   const videoPaths = new Set(manifest.treasures.winter.videos?.map(({ video }) => video));
   for (const path of videoPaths) if (!entries.has(path)) throw new Error('宝藏包缺少视频：' + path);

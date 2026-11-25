@@ -108,13 +108,19 @@ try {
     } else if (message.method === 'Runtime.bindingCalled' && message.params.name === '__saveFrame') {
       const payload = message.params.payload;
       try {
-        const { name, pointer } = payload.startsWith('{') ? JSON.parse(payload) : { name: payload };
-        assert(/^[a-z-]+\.png$/.test(name), 'Invalid screenshot filename');
+        const { name, pointer, swipe } = payload.startsWith('{') ? JSON.parse(payload) : { name: payload };
+        if (name) assert(/^[a-z0-9-]+\.png$/.test(name), 'Invalid screenshot filename');
+        if (swipe) {
+          const [start, end] = swipe;
+          await command('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] });
+          await command('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [end] });
+          await command('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        }
         if (pointer) {
           await command('Input.dispatchMouseEvent', { type: 'mouseMoved', ...pointer });
           await evaluate('window.__papertrailsTest.update(0); window.__papertrailsTest.render(0)');
         }
-        if (artifacts) {
+        if (artifacts && name) {
           const { data: png } = await command('Page.captureScreenshot', { format: 'png' });
           await fs.writeFile(path.join(artifacts, name), Buffer.from(png, 'base64'));
         }
@@ -170,8 +176,26 @@ try {
     });
     await checkWinterStage(window.__papertrailsTest, capture, ${mobile});
   })()`;
+  const springExpression = (mobile) => `(async () => {
+    const { checkSpringStage } = await import('/tests/spring-scene.browser.js');
+    const browser = (payload) => new Promise((resolve) => {
+      window.__frameReady = resolve;
+      window.__saveFrame(JSON.stringify(payload));
+    });
+    await checkSpringStage(window.__papertrailsTest, browser, ${mobile});
+  })()`;
+  const autumnExpression = (memories, mobile = false) => `(async () => {
+    const { ${memories ? 'checkAutumnMemories' : 'checkAutumnStage'}: check } =
+      await import('/tests/${memories ? 'autumn-memories' : 'autumn-scene'}.browser.js');
+    const capture = (name) => new Promise((resolve) => {
+      window.__frameReady = resolve;
+      window.__saveFrame(name);
+    });
+    await check(window.__papertrailsTest, capture, ${mobile});
+  })()`;
+  const autumnOnly = ['autumn-scene', 'autumn-memories'].includes(process.argv[2]);
 
-  if (process.argv[2] !== 'game' && process.argv[2] !== 'winter-scene') {
+  if (!autumnOnly && !['game', 'winter-scene', 'spring-scene'].includes(process.argv[2])) {
     await load(origin + '/__checks');
     for (const id of ['companions', 'treasure-sites', 'treasure-progress', 'treasure-pack', 'treasure-ui']) {
       if (process.argv[2] && process.argv[2] !== id) continue;
@@ -179,7 +203,7 @@ try {
       console.log(id + ':', typeof result === 'string' ? result : '通过');
     }
   }
-  if (!process.argv[2] || ['game', 'winter-scene'].includes(process.argv[2])) {
+  if (autumnOnly || !process.argv[2] || ['game', 'winter-scene', 'spring-scene'].includes(process.argv[2])) {
     const url = origin + '/?seed=7&quality=low&mute=1&hint=0';
     for (const reloaded of [false, true]) {
       await load(url);
@@ -191,7 +215,7 @@ try {
         await wait(125);
       }
       assert(ready, 'Game did not finish booting');
-      if (!reloaded && process.argv[2] !== 'game') {
+      if (!reloaded && !autumnOnly && !['game', 'spring-scene'].includes(process.argv[2])) {
         await command('Emulation.setDeviceMetricsOverride', { width: 1280, height: 720, deviceScaleFactor: 1, mobile: false });
         await evaluate('new Promise(requestAnimationFrame)');
         await evaluate(winterExpression(false));
@@ -203,6 +227,44 @@ try {
         await command('Emulation.setEmulatedMedia', { features: [] });
         console.log('winter-scene: 横屏、竖屏及减少动态效果通过');
         if (process.argv[2] === 'winter-scene') break;
+      }
+      if (!reloaded && !autumnOnly && process.argv[2] !== 'game') {
+        await command('Emulation.setDeviceMetricsOverride', { width: 1920, height: 911, deviceScaleFactor: 1, mobile: false });
+        await evaluate('new Promise(requestAnimationFrame)');
+        await evaluate(springExpression(false));
+        await command('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: false });
+        await command('Emulation.setTouchEmulationEnabled', { enabled: true });
+        await command('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+        await evaluate('new Promise(requestAnimationFrame)');
+        await evaluate(springExpression(true));
+        await command('Emulation.setTouchEmulationEnabled', { enabled: false });
+        await command('Emulation.setEmulatedMedia', { features: [] });
+        await command('Emulation.setDeviceMetricsOverride', { width: 960, height: 610, deviceScaleFactor: 1, mobile: false });
+        console.log('spring-scene: 桌面动画、横竖图、长留言及触摸交互通过');
+        if (process.argv[2] === 'spring-scene') break;
+      }
+      if (!reloaded && (autumnOnly || !process.argv[2])) {
+        await command('Emulation.setDeviceMetricsOverride', { width: 1440, height: 810, deviceScaleFactor: 1, mobile: false });
+        await evaluate('new Promise(requestAnimationFrame)');
+        if (process.argv[2] !== 'autumn-memories') {
+          await evaluate(autumnExpression(false));
+          await command('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: false });
+          await command('Emulation.setTouchEmulationEnabled', { enabled: true });
+          await command('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+          await evaluate('new Promise(requestAnimationFrame)');
+          await evaluate(autumnExpression(false, true));
+          await command('Emulation.setTouchEmulationEnabled', { enabled: false });
+          await command('Emulation.setEmulatedMedia', { features: [] });
+          await command('Emulation.setDeviceMetricsOverride', { width: 1440, height: 810, deviceScaleFactor: 1, mobile: false });
+          console.log('autumn-scene: 大道、长椅及减少动态效果通过');
+        }
+        if (process.argv[2] !== 'autumn-scene') {
+          await evaluate('new Promise(requestAnimationFrame)');
+          await evaluate(autumnExpression(true));
+          console.log('autumn-memories: 六段回忆和旧纪念页通过');
+        }
+        if (autumnOnly) break;
+        await command('Emulation.setDeviceMetricsOverride', { width: 960, height: 610, deviceScaleFactor: 1, mobile: false });
       }
       console.log('game:', await evaluate(expression(null, true, reloaded)));
     }

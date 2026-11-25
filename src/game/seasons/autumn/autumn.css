@@ -1,0 +1,441 @@
+.autumn-avenue[open] {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #482b1e;
+  outline: none;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.autumn-avenue::backdrop { background: transparent; }
+.autumn-avenue [hidden] { display: none; }
+body:has(.autumn-avenue[open]) #hint { visibility: hidden; }
+.autumn-intro, .autumn-intro-wind { position: absolute; inset: 0; pointer-events: none; }
+.autumn-intro {
+  display: none;
+  place-content: center;
+  grid-auto-flow: column;
+  align-items: center;
+  gap: .35em;
+  padding-inline: 1.2rem;
+  background: #000;
+  color: #f5e6c2;
+  text-align: center;
+  font: 400 clamp(18px, 3.1vw, 34px)/1.6 "Songti SC", "SimSun", "Noto Serif CJK SC", serif;
+  letter-spacing: .18em;
+}
+.autumn-intro i { width: .10em; height: 1em; background: #f5e6c2; animation: autumn-caret .65s steps(1) infinite; }
+.autumn-avenue[data-state="INTRO"] .autumn-intro,
+.autumn-avenue[data-state="REVEAL"] .autumn-intro { display: grid; }
+.autumn-intro-wind { display: none; width: 100%; height: 100%; }
+.autumn-avenue[data-state="REVEAL"] .autumn-intro-wind { display: block; }
+@keyframes autumn-caret { 55% { opacity: 0; } }
+.autumn-bench-note {
+  position: absolute;
+  translate: -50% -100%;
+  pointer-events: none;
+  display: grid;
+  gap: .22rem;
+  min-width: 10rem;
+  width: max-content;
+  padding: .62rem .9rem;
+  border: 1px solid #b7804c;
+  background: #f0d8aa;
+  box-shadow: 3px 4px 0 #7144299c;
+  text-align: center;
+  font: 400 .91rem/1.35 "Songti SC", "SimSun", serif;
+}
+.autumn-bench-note::after {
+  content: '';
+  width: .45rem;
+  aspect-ratio: 1;
+  position: absolute;
+  left: calc(50% - .225rem);
+  bottom: -.28rem;
+  transform: rotate(45deg);
+  background: #f0d8aa;
+  border: solid #b7804c;
+  border-width: 0 1px 1px 0;
+}
+.autumn-bench-note small { color: #694630; }
+.autumn-bench-note small::before {
+  content: '';
+  display: inline-block;
+  width: .46rem;
+  height: .62rem;
+  margin-right: .34rem;
+  border: 1px solid currentColor;
+  border-radius: .36rem;
+  vertical-align: -.07rem;
+}
+.autumn-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  pointer-events: none;
+}
+.autumn-sr:focus-within {
+  width: auto;
+  height: auto;
+  clip-path: none;
+  inset: auto auto 1rem 1rem;
+  pointer-events: auto;
+}
+.autumn-overlay { position: absolute; inset: 0; pointer-events: none; }
+.autumn-paper {
+  --cut: polygon(0 .5%, 16% 0, 38% .9%, 59% .1%, 99.7% 1%, 99% 31%, 100% 66%, 99.3% 100%, 74% 99.5%, 54% 100%, 19% 99.1%, 0 99.6%);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: min(91vw, 34rem);
+  max-height: min(79dvh, 48rem);
+  border: 1px solid #cc9c6a;
+  color: #543323;
+  background: radial-gradient(ellipse at 20% 0%, #fae9c8, #edd1a5 94%);
+  box-shadow: 5px 7px 0 #b47749, -6px 5px 0 #e4b781, 0 18px 50px #381b15b0;
+  pointer-events: auto;
+  touch-action: pan-y;
+  font: 400 1rem/1.65 "Microsoft YaHei", system-ui, sans-serif;
+  animation: autumn-unfold .36s ease-out both;
+}
+.autumn-paper::before {
+  content: '';
+  position: absolute;
+  inset: -5px 12px auto;
+  height: 9px;
+  background: #efd7ae;
+  clip-path: var(--cut);
+  pointer-events: none;
+}
+.autumn-chat {
+  --torn: polygon(0 2%, 6% 1.2%, 9% 2.2%, 15% .7%, 21% 1.8%, 27% .3%, 36% 1.4%, 42% .8%, 49% 1.5%, 56% 0, 61% 1.2%, 67% .7%, 78% 1.4%, 83% .2%, 90% 1.6%, 98.6% .4%, 99.7% 7%, 98.8% 14%, 100% 20%, 99.1% 27%, 100% 39%, 99.3% 51%, 100% 57%, 98.9% 69%, 99.6% 79%, 98.7% 88%, 99.3% 94%, 96.3% 98.4%, 88% 99.7%, 83% 98.4%, 75% 100%, 70% 98.9%, 65% 99.7%, 57% 98.5%, 42% 100%, 35% 98.8%, 26% 100%, 19% 98.5%, 12% 99.5%, 3.1% 98%, .4% 95%, 1.3% 88%, 0 80%, .8% 71%, 0 63%, .7% 55%, 0 45%, .8% 36%, 0 27%, 1% 16%);
+  top: 47%;
+  left: clamp(14rem, 22vw, 40%);
+  width: min(25rem, 49vw);
+  border: 0;
+  isolation: isolate;
+  background: none;
+  box-shadow: none;
+  font-size: .94rem;
+}
+.autumn-chat::before {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -2;
+  transform: translate(.44rem, .48rem) rotate(-2deg);
+  background: url('./art/paper.webp') repeat, #d3ab79;
+  background-size: 180px, auto;
+  clip-path: var(--torn);
+}
+.autumn-chat-sheet {
+  position: relative;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  filter: drop-shadow(0 .5rem .55rem #46241b71);
+}
+.autumn-chat-sheet::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: url('./art/paper.webp') repeat, linear-gradient(135deg, #f8e7c8, #efd4a9 69%, #f2dbb5);
+  background-size: 160px, auto;
+  clip-path: var(--torn);
+}
+.autumn-chat-sheet::after {
+  content: '';
+  position: absolute;
+  bottom: .24rem;
+  right: .36rem;
+  width: 1.6rem;
+  aspect-ratio: 1;
+  background: linear-gradient(135deg, #f8e7c4 45%, #d5ae7c 94%);
+  clip-path: polygon(100% 0, 92% 76%, 0 100%, 21% 67%, 34% 34%, 69% 22%);
+  pointer-events: none;
+}
+.autumn-chat-keepsake {
+  position: absolute;
+  z-index: -3;
+  left: -1.7rem;
+  top: 12%;
+  width: 35%;
+  height: 68%;
+  rotate: -8deg;
+  padding: .34rem .34rem .76rem;
+  background: #f3dfbb;
+  box-shadow: 0 .2rem .55rem #522f23b5;
+  pointer-events: none;
+}
+.autumn-chat-keepsake img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.autumn-chat-leaf { position: absolute; inset: 0; pointer-events: none; }
+.autumn-chat-leaf::before, .autumn-chat-leaf::after {
+  content: '';
+  position: absolute;
+  width: 3.25rem;
+  aspect-ratio: 1;
+  background: url('./art/leaf.webp') center / contain no-repeat;
+  filter: drop-shadow(.14rem .19rem .09rem #74352868);
+}
+.autumn-chat-leaf::before { top: -.86rem; right: 2.25rem; rotate: 22deg; }
+.autumn-chat-leaf::after { bottom: -.76rem; left: -.55rem; rotate: -27deg; }
+.autumn-chat .autumn-paper-head {
+  border: 0;
+  padding: 1.85rem 3rem .08rem 1.2rem;
+  min-height: 2.55rem;
+}
+.autumn-chat .autumn-paper-head h2 {
+  position: absolute;
+  top: -.53rem;
+  left: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: .46rem;
+  padding: .45rem .7rem;
+  font-size: 1rem;
+  letter-spacing: .065em;
+  background: url('./art/paper.webp') repeat, #e4b875;
+  background-size: 170px, auto;
+  box-shadow: .12rem .2rem .18rem #64382661;
+  rotate: -2deg;
+}
+.autumn-chat .autumn-paper-head h2::before {
+  content: '';
+  width: .93rem;
+  height: .68rem;
+  border: solid #6b472c;
+  border-width: .14rem .25rem;
+  box-sizing: content-box;
+}
+.autumn-chat .autumn-paper-head time { color: #795034; font-size: .83rem; }
+.autumn-chat .autumn-paper-body { padding: .45rem 1.3rem 1.48rem; min-height: 0; }
+.autumn-letter { width: min(91vw, 38rem); }
+.autumn-paper-head {
+  position: relative;
+  padding: 1rem 5rem .8rem 1.3rem;
+  border-bottom: 1px solid #bd946483;
+}
+.autumn-paper h2, .autumn-film-title h2 {
+  margin: 0;
+  font: 500 1.45rem/1.27 "Songti SC", "SimSun", serif;
+  letter-spacing: .12em;
+}
+.autumn-paper time { display: block; margin-top: .25rem; color: #825e40; font: 1rem Georgia, serif; letter-spacing: .12em; }
+.autumn-paper-body {
+  padding: .95rem 1.3rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scrollbar-color: #a36a45 #efd6ae;
+  scrollbar-width: thin;
+}
+.autumn-paper-body > p { overflow-wrap: anywhere; white-space: pre-wrap; margin: 0 0 1em; }
+.autumn-avenue button {
+  padding: .35rem .65rem;
+  border: 1px solid #a3774f;
+  border-radius: 3px;
+  background: #f0d7aa;
+  color: #492c20;
+  font: 500 .875rem/1.2 "Microsoft YaHei", system-ui, sans-serif;
+  cursor: pointer;
+}
+.autumn-avenue button:hover { background: #fae9c5; }
+.autumn-avenue button:focus-visible { outline: 2px solid #b56a3a; outline-offset: 2px; }
+.autumn-avenue button:disabled { opacity: .5; cursor: auto; }
+.autumn-avenue .autumn-emblem:where(:not([hidden])) {
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #735034;
+  box-shadow: inset 0 0 0 1px currentColor;
+  font: 400 1.12rem/1 Georgia, serif;
+  transition: background-color .18s, color .18s;
+}
+.autumn-avenue .autumn-emblem::before { content: attr(data-glyph); }
+.autumn-avenue .autumn-emblem > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.autumn-avenue .autumn-emblem:hover, .autumn-avenue .autumn-emblem:focus-visible { background: #8b542f24; }
+.autumn-sr:focus-within {
+  display: flex;
+  gap: .6rem;
+  padding: .65rem .9rem;
+  background: #442819d9;
+  border-radius: .25rem;
+}
+.autumn-avenue .autumn-sr button {
+  padding: .3rem .18rem;
+  border: 0;
+  border-bottom: 1px solid #ecd1a2;
+  border-radius: 0;
+  background: transparent;
+  color: #f4dfb6;
+}
+.autumn-avenue .autumn-page-close { position: absolute; top: .75rem; right: .85rem; width: 1.65rem; height: 1.65rem; }
+.autumn-chat .autumn-page-close { top: .62rem; right: .68rem; }
+.autumn-letter > button { align-self: end; margin: .4rem 1.2rem 1rem; }
+.autumn-avenue .autumn-letter-tab {
+  background: #e0b778;
+  border-radius: 2px 2px 0 0;
+  box-shadow: none;
+  clip-path: polygon(0 0,100% 0,100% 100%,50% 83%,0 100%);
+}
+.autumn-messages { display: grid; gap: .72rem; margin: 0; padding: 0; list-style: none; }
+.autumn-message { display: flex; align-items: flex-start; gap: .48rem; }
+.autumn-message[data-speaker="boy"] { justify-content: flex-end; }
+.autumn-message[data-speaker="boy"] .autumn-avatar { order: 1; }
+.autumn-avatar {
+  display: block;
+  box-sizing: border-box;
+  width: 2.15rem;
+  height: 2.15rem;
+  object-fit: cover;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid #f8e9cb;
+  box-shadow: 0 0 0 1px #b78f5d70;
+}
+.autumn-bubble {
+  --bubble: #f9e9ca;
+  position: relative;
+  max-width: 77%;
+  background: var(--bubble);
+  padding: .43rem .73rem;
+  border-radius: .76rem;
+  box-shadow: 0 1px 1px #9f6b4312;
+}
+.autumn-bubble::before {
+  content: '';
+  position: absolute;
+  top: .65rem;
+  left: -.28rem;
+  width: .36rem;
+  aspect-ratio: 1;
+  background: var(--bubble);
+  transform: rotate(45deg);
+}
+.autumn-message[data-speaker="boy"] .autumn-bubble { --bubble: #e9b493; }
+.autumn-message[data-speaker="boy"] .autumn-bubble::before { left: auto; right: -.28rem; }
+.autumn-bubble p { margin: 0; overflow-wrap: anywhere; min-height: 1.3em; }
+.autumn-sticker-media { max-width: 77%; }
+.autumn-sticker { display: block; max-width: min(9rem, 100%); max-height: 7rem; height: auto; object-fit: contain; }
+.autumn-route { display: flex; align-items: center; gap: .5rem; padding: .85rem .55rem; margin-top: 1rem; border: 1px solid #c19764; font-size: .8rem; }
+.autumn-route i { flex: 1; border-top: 2px dashed #9c593a; transform-origin: left; animation: autumn-route .7s ease both; }
+.autumn-route i::after { content: '›'; position: absolute; right: 0; top: -.85em; font-size: 1.1rem; color: #9c593a; }
+.autumn-keepsake-photo { display: block; width: 100%; max-height: 42dvh; object-fit: contain; margin-bottom: .85rem; }
+.autumn-film-overlay { position: absolute; inset: 0; color: #fff0d0; }
+.autumn-film-title, .autumn-film-subtitle {
+  position: absolute;
+  background: #2c190fbc;
+  padding: .65rem 1rem;
+  text-shadow: 0 1px 3px #25130a;
+}
+.autumn-film-title { top: max(1rem, env(safe-area-inset-top)); left: 1rem; }
+.autumn-film-title time { font: .95rem Georgia, serif; letter-spacing: .13em; }
+.autumn-film-subtitle { bottom: 4.3rem; left: 50%; translate: -50% 0; margin: 0; text-align: center; }
+.autumn-film-subtitle:empty { display: none; }
+.autumn-film-controls {
+  position: absolute;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  gap: .66rem;
+  padding: .56rem .85rem;
+  border-radius: .17rem;
+  background: url('./art/paper.webp') repeat, #46281aec;
+  background-size: 160px, auto;
+  box-shadow: 0 .13rem .5rem #331b1499;
+  pointer-events: auto;
+  width: max-content;
+  max-width: 96vw;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.autumn-film-controls::before, .autumn-film-controls::after {
+  content: '';
+  position: absolute;
+  left: .35rem;
+  right: .35rem;
+  height: .18rem;
+  background: repeating-linear-gradient(90deg, #dfbc818a 0 .21rem, transparent .21rem .48rem);
+  pointer-events: none;
+}
+.autumn-film-controls::before { top: .15rem; }
+.autumn-film-controls::after { bottom: .15rem; }
+.autumn-film-controls .autumn-emblem { color: #f4d49f; width: 2.15rem; height: 2.15rem; }
+.autumn-film-controls .autumn-emblem:hover, .autumn-film-controls .autumn-emblem:focus-visible { background: #f4d49f30; }
+.autumn-film-photo {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  translate: -50% -50%;
+  margin: 0;
+  width: min(68vw, 39rem);
+  box-sizing: border-box;
+  padding: .85rem .85rem .52rem;
+  background: #f0deb8;
+  box-shadow: .35rem .55rem 0 #bd8854, 0 1rem 3rem #2a160eaa;
+  color: #67432d;
+  text-align: center;
+  animation: autumn-unfold .36s ease-out both;
+}
+.autumn-film-photo img { display: block; width: 100%; height: min(45dvh, 26rem); object-fit: contain; background: #d9bd94; }
+.autumn-film-photo .autumn-photo-turn {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  background: #eed5a8;
+  box-shadow: 0 2px 4px #412b2265;
+  pointer-events: auto;
+}
+.autumn-photo-prev { left: -.7rem; }
+.autumn-photo-next { right: -.7rem; }
+.autumn-film-photo figcaption:not(:empty) {
+  margin-top: .4rem;
+  max-height: 4.2em;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  pointer-events: auto;
+  touch-action: pan-y;
+}
+.autumn-empty-photo { display: grid; place-items: center; min-height: min(30dvh, 13rem); border: 1px solid #a98155; color: #765136; }
+@keyframes autumn-unfold { from { opacity: 0; transform: perspective(800px) rotateX(-24deg) scale(.92); } }
+@keyframes autumn-route { from { scale: 0 1; } }
+@media (max-width: 600px) {
+  .autumn-chat { left: 51%; width: min(82vw, 26rem); }
+  .autumn-chat-keepsake { left: -1rem; }
+  .autumn-chat .autumn-paper-body { padding-inline: .9rem; }
+  .autumn-film-photo { width: 85vw; }
+  .autumn-film-subtitle { width: 75vw; }
+  .autumn-paper-body { padding-inline: .85rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .autumn-intro i, .autumn-paper, .autumn-film-photo, .autumn-route i { animation: none; }
+}

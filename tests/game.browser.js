@@ -263,6 +263,40 @@ export async function checkGame(app, capture, reloaded = false) {
       step(47);
     } else step(78);
     key('KeyD', 'keyup');
+    if (site.id === 'spring') {
+      const spring = document.querySelector('.spring-garden');
+      assert(spring.open && !dialog.open && game.modal() && traveller.position.distanceTo(feet) < .001,
+        '春季应进入独立花园并锁定地图输入');
+      assert(spring.dataset.state === 'OPENING' && await game.spring.photosReady, '首次开箱应播放开场并读取导入的照片');
+      step(370);
+      assert(spring.dataset.state === 'IDLE', '花园开场完成后应可交互');
+      key('Escape');
+      step(17);
+      assert(!spring.open && !game.modal() && document.activeElement === canvas, '离开花园后应恢复地图输入');
+      key('KeyF');
+      assert(spring.open && spring.dataset.state === 'OPENING', '退出后重新按 F 应重播春季开场');
+      step(181);
+      assert(spring.dataset.state === 'BLOOMING', '重新开箱应再次播放花瓣绽放');
+      step(185);
+      assert(spring.dataset.state === 'IDLE' && await game.spring.photosReady, '重播后应恢复照片和铭牌交互');
+      key('Escape');
+      step(17);
+      continue;
+    }
+    if (site.id === 'autumn') {
+      const autumn = document.querySelector('.autumn-avenue');
+      assert(autumn.open && !dialog.open && game.modal() && traveller.position.distanceTo(feet) < .001,
+        '秋季应进入独立大道并锁定地图输入');
+      assert(autumn.dataset.state === 'INTRO', '首次开箱应播放秋季序幕');
+      step(260);
+      assert(autumn.dataset.state === 'EXPLORE', '秋季序幕未进入大道');
+      key('Escape');
+      assert(!autumn.open && !game.modal(), '退出大道后未恢复地图输入');
+      key('KeyF');
+      assert(autumn.open && autumn.dataset.state === 'INTRO', '重开秋季宝箱未重播序幕');
+      key('Escape');
+      continue;
+    }
     if (site.id === 'winter') {
       assert(winter.open && !dialog.open && game.modal() && traveller.position.distanceTo(feet) < .001, '冬季应进入独立绘本并锁定输入');
       assert(document.querySelector('.treasure-prompt').hidden, '进入绘本后应隐藏地图开箱提示');

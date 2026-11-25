@@ -31,6 +31,8 @@ treasure-pack.zip
 │   ├── spring.webp
 │   ├── summer.jpg
 │   ├── autumn.png
+│   ├── chat-sticker.png
+│   ├── first-meeting.jpg
 │   └── winter.webp
 └── videos/
     └── winter.mp4
@@ -41,12 +43,23 @@ treasure-pack.zip
 ```json
 {
   "format": "papertrails-treasure-pack",
-  "version": 2,
+  "version": 3,
   "title": "填入宝藏包标题",
   "treasures": {
     "spring": { "title": "春日标题", "message": "春日正文", "image": "images/spring.webp" },
     "summer": { "title": "夏日标题", "message": "夏日正文", "image": "images/summer.jpg" },
-    "autumn": { "title": "秋日标题", "message": "秋日正文", "image": "images/autumn.png" },
+    "autumn": {
+      "title": "秋日标题",
+      "message": "秋日正文",
+      "image": "images/autumn.png",
+      "memories": {
+        "firstChat": { "sticker": "images/chat-sticker.png" },
+        "firstMeeting": { "photos": [{ "image": "images/first-meeting.jpg", "caption": "那天的照片" }] },
+        "newYear": { "photos": [] },
+        "livingTogether": { "photos": [] },
+        "letter": { "paragraphs": ["秋日来信的正文"] }
+      }
+    },
     "winter": {
       "title": "冬日标题",
       "photos": [
@@ -69,12 +82,18 @@ treasure-pack.zip
 | --- | --- |
 | 压缩包 | 普通 ZIP，最多 20 MiB，解压后合计最多 40 MiB，共 20 个条目，含目录 |
 | 图片 | PNG、JPEG、WebP。单张最多 12 MiB，宽高各不超过 4096 像素 |
-| JSON | UTF-8，版本 1 或 2，最大 128 KiB |
-| 冬季照片 | 版本 2 支持最多 6 张，每张说明最多 320 字符，整个 ZIP 最多 9 个图片文件 |
-| 冬季视频 | 版本 2 支持最多 3 段 MP4 或 WebM，放在 ZIP 根目录的 `videos/` 下，单段最多 18 MiB，每段说明最多 320 字符 |
-| 文字 | 标题、称呼和落款最多 140 字符，春夏秋正文各最多 2000 字符，冬季 1 至 30 段且每段最多 2400 字符 |
+| JSON | UTF-8，版本 1、2 或 3，最大 128 KiB |
+| ZIP 图片文件数 | 版本 2 最多 9 张，版本 3 最多 16 张 |
+| 秋季回忆 | 版本 3 支持一张聊天贴纸，见面、跨年、同居三个章节各最多 2 张照片。照片说明可省略，每条最多 320 字符 |
+| 冬季照片 | 版本 2 和 3 最多 6 张，每张说明最多 320 字符 |
+| 冬季视频 | 版本 2 和 3 最多 3 段 MP4 或 WebM，放在 ZIP 根目录的 `videos/` 下，单段最多 18 MiB，每段说明最多 320 字符 |
+| 文字 | 标题、称呼和落款最多 140 字符，春夏秋正文各最多 2000 字符，秋季来信最多 30 段，冬季来信 1 至 30 段。每段最多 2400 字符 |
 
-版本 1 仍使用 `winter.photo` 指定单张照片，并保留原有信件格式。版本 2 至少提供一张照片或一段视频，也可以同时提供两种。可以先省略 `winter.letter`，等信件准备好后再导入完整 ZIP。视频会使用浏览器支持的编码在本地播放。
+版本 3 可省略整个 `autumn.memories` 或其中任意章节。提供照片章节时填写 `photos` 数组，提供来信时填写 `paragraphs` 数组。两种数组都可以为空，来信的 `salutation` 和 `signature` 可省略。贴纸和照片均使用 ZIP 内 `images/` 下的路径。
+
+如果同时使用 16 张图片和 3 段视频，媒体文件和 `manifest.json` 已占满 20 个条目。打包时保留媒体的文件夹路径即可，可以省去单独的目录条目。
+
+版本 1 使用 `winter.photo` 指定单张照片，并要求填写信件。版本 2 和 3 的冬季至少提供一张照片或一段视频，也可以同时提供两种。可以先省略 `winter.letter`，等信件准备好后再导入完整 ZIP。视频会使用浏览器支持的编码在本地播放。
 
 ## 配置和验证
 

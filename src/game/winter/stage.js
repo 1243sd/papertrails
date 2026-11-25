@@ -500,7 +500,7 @@ export function createWinterStage({ assets, materials }) {
     const root = group(foreground, coat, x, floor + .012, .16 + i * .07);
     const canvas = document.createElement('canvas');
     canvas.width = 256; canvas.height = 192;
-    const ink = canvas.getContext('2d');
+    const ink = canvas.getContext('2d', { willReadFrequently: coat === 'cat_grey_stripe' });
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = 4;
@@ -522,10 +522,24 @@ export function createWinterStage({ assets, materials }) {
     const { x, y, w, h, ax, footY } = frame;
     const scale = Math.min(.74, 216 / w, 164 / h);
     ink.clearRect(0, 0, canvas.width, canvas.height);
-    ink.filter = coat === 'cat_black' ? 'saturate(.42) brightness(.83)' : 'saturate(.48)';
+    ink.filter = coat === 'cat_black' ? 'saturate(.42) brightness(.83)' : 'none';
     ink.setTransform(-side, 0, 0, 1, side > 0 ? canvas.width : 0, 0);
     ink.drawImage(sprites.sheet, x, y, w, h, canvas.width / 2 - ax * scale, canvas.height - 2 - footY * scale, w * scale, h * scale);
     ink.resetTransform();
+    if (coat === 'cat_grey_stripe') {
+      const pixels = ink.getImageData(0, 0, canvas.width, canvas.height);
+      const rgba = pixels.data;
+      // Warm the midtone fur while retaining the contrast of the stripes and the light markings.
+      for (let i = 0; i < rgba.length; i += 4) {
+        if (!rgba[i + 3]) continue;
+        const tone = rgba[i] * .21 + rgba[i + 1] * .72 + rgba[i + 2] * .07;
+        const amount = THREE.MathUtils.smoothstep(tone, 100, 150) * (1 - THREE.MathUtils.smoothstep(tone, 179, 225));
+        rgba[i] += amount * 24;
+        rgba[i + 1] += amount * 15;
+        rgba[i + 2] -= amount * 19;
+      }
+      ink.putImageData(pixels, 0, 0);
+    }
     texture.needsUpdate = true;
     cat.pose = pose;
     cat.card.visible = true;

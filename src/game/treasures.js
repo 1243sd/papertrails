@@ -1,3 +1,4 @@
+import { Raycaster, Vector2 } from 'three';
 import { CONFIG, TILE_SIZE } from '../core/config.js';
 import { biomeInfo, findBiome } from '../core/biomes.js';
 import { bus } from '../core/events.js';
@@ -49,7 +50,7 @@ export function treasureTileState(world, site) {
   return record?.shown && record.fold.target === 1 ? record.fold.progress : 0;
 }
 
-export function createTreasures({ world, materials, traveller, progress, seed, controls, game, treasureUI = true }) {
+export function createTreasures({ world, materials, traveller, progress, seed, controls, game, renderer, follow, treasureUI = true }) {
   const chests = [];
   for (const [id, theme] of Object.entries(settings.seasons)) {
     const center = findBiome(seed, theme.biome, 0, 0, 3, 90)
@@ -101,7 +102,11 @@ export function createTreasures({ world, materials, traveller, progress, seed, c
   const off = [bus.on('tile:rise', onRise), bus.on('tile:flat', onHide), bus.on('tile:despawn', onHide)];
   const root = treasureUI && globalThis.document?.getElementById('treasure-ui');
   const ui = root ? createTreasureUI(root, () => controls?.clearInput(), {
-    onPack: (pack, status) => game?.winter?.setPack(pack, status),
+    onPack: (pack, status) => {
+      game?.spring?.setPack(pack, status);
+      game?.autumn?.setPack(pack, status);
+      game?.winter?.setPack(pack, status);
+    },
   }) : null;
   let pending = null;
 
@@ -123,7 +128,13 @@ export function createTreasures({ world, materials, traveller, progress, seed, c
 
   function show(entry) {
     const { id } = entry.site;
-    if (id === 'winter') {
+    if (id === 'spring' && game?.spring) {
+      ui.prompt('');
+      game.spring.open();
+    } else if (id === 'autumn' && game?.autumn) {
+      ui.prompt('');
+      game.autumn.open();
+    } else if (id === 'winter') {
       ui.prompt('');
       game?.winter?.open(settings.seasons[id]);
     } else ui.showTreasure(id, settings.seasons[id]);
@@ -135,9 +146,14 @@ export function createTreasures({ world, materials, traveller, progress, seed, c
   }
 
   function onKeyDown(event) {
-    if (event.code === 'Escape' && (pending || ui.open || game?.winter?.active)) {
+    const scene = game?.treasureScene?.();
+    if (event.code === 'Escape' && (pending || ui.open || scene)) {
       event.preventDefault();
       event.stopImmediatePropagation();
+      if (scene?.escape) {
+        if (!event.repeat) scene.escape();
+        return;
+      }
       pending = null;
       ui.close();
       game?.winter?.close();
@@ -145,7 +161,7 @@ export function createTreasures({ world, materials, traveller, progress, seed, c
       return;
     }
     if (event.repeat || event.ctrlKey || event.metaKey || event.altKey
-      || game?.atlasmap?.open || pending || ui.open || game?.winter?.active) return;
+      || game?.atlasmap?.open || pending || ui.open || scene) return;
     if (event.code === 'KeyI') {
       event.preventDefault();
       controls?.clearInput();
@@ -157,6 +173,10 @@ export function createTreasures({ world, materials, traveller, progress, seed, c
     const entry = nearest(settings.interactRadius);
     if (!entry || isLocked(entry.site.id)) return;
     event.preventDefault();
+    openEntry(entry);
+  }
+
+  function openEntry(entry) {
     controls?.clearInput();
     traveller.velocity?.set(0, 0, 0);
     if (progress.openTreasure(entry.site.id)) {
@@ -165,12 +185,40 @@ export function createTreasures({ world, materials, traveller, progress, seed, c
     } else show(entry);
   }
 
+  const canvas = ui && follow?.camera && renderer?.domElement;
+  const pointer = new Vector2(), ray = new Raycaster();
+  let touch;
+  function onTouchDown(event) {
+    if (event.pointerType !== 'touch' || !event.isPrimary || !game?.autumn || game.modal()) return;
+    const entry = nearest(settings.interactRadius);
+    if (entry?.site.id !== 'autumn') return;
+    const bounds = canvas.getBoundingClientRect();
+    pointer.set(2 * (event.clientX - bounds.left) / bounds.width - 1,
+      1 - 2 * (event.clientY - bounds.top) / bounds.height);
+    ray.setFromCamera(pointer, follow.camera);
+    entry.group.updateWorldMatrix(true, true);
+    if (!ray.intersectObject(entry.group, true).length) return;
+    event.stopImmediatePropagation();
+    touch = { id: event.pointerId, x: event.clientX, y: event.clientY, entry };
+  }
+  function onTouchUp(event) {
+    if (touch?.id !== event.pointerId) return;
+    const { x, y, entry } = touch;
+    touch = undefined;
+    if (event.type === 'pointerup' && !game.modal() && nearest(settings.interactRadius) === entry
+      && Math.hypot(event.clientX - x, event.clientY - y) < 12) openEntry(entry);
+  }
+  canvas?.addEventListener('pointerdown', onTouchDown, true);
+  if (canvas) {
+    window.addEventListener('pointerup', onTouchUp, true);
+    window.addEventListener('pointercancel', onTouchUp, true);
+  }
   if (ui) window.addEventListener('keydown', onKeyDown, true);
 
   return {
     sites: chests.map(({ site }) => site),
     treeSite,
-    get open() { return !!(pending || ui?.open || game?.winter?.active); },
+    get open() { return !!(pending || ui?.open || game?.treasureScene?.()); },
     update(dt) {
       for (const entry of chests) sync(entry, dt);
       if (!ui) return;
@@ -178,12 +226,13 @@ export function createTreasures({ world, materials, traveller, progress, seed, c
         show(pending);
         pending = null;
       }
-      const entry = pending || ui.open || game?.winter?.active || game?.atlasmap?.open ? null : nearest(settings.promptRadius);
+      const entry = pending || ui.open || game?.treasureScene?.() || game?.atlasmap?.open ? null : nearest(settings.promptRadius);
       if (!entry) { ui.prompt(''); return; }
       const { id } = entry.site;
       progress.discoverTreasure(id);
       const title = settings.seasons[id].promptTitle ?? settings.seasons[id].title;
-      const action = isLocked(id) ? '先打开春、夏、秋宝箱' : progress.treasureOpened(id) ? '按 F 再次查看' : '按 F 打开';
+      const key = id === 'autumn' && matchMedia('(pointer: coarse)').matches ? '轻触宝箱' : '按 F';
+      const action = isLocked(id) ? '先打开春、夏、秋宝箱' : progress.treasureOpened(id) ? key + ' 再次查看' : key + ' 打开';
       const withinReach = nearest(settings.interactRadius) === entry;
       ui.prompt(`✦ ${title}　${withinReach ? action : '再走近一点'}`);
     },
@@ -193,6 +242,11 @@ export function createTreasures({ world, materials, traveller, progress, seed, c
     isVisible(id) { return chests.some(({ site, group }) => site.id === id && group.visible); },
     isReady(id) { return chests.some(({ site, ready }) => site.id === id && ready); },
     dispose() {
+      canvas?.removeEventListener('pointerdown', onTouchDown, true);
+      if (canvas) {
+        window.removeEventListener('pointerup', onTouchUp, true);
+        window.removeEventListener('pointercancel', onTouchUp, true);
+      }
       if (ui) window.removeEventListener('keydown', onKeyDown, true);
       ui?.dispose();
       pending = null;
