@@ -20,11 +20,14 @@ export function hills(paper, root, x = 0, z = 11, cold = false) {
 
 export function movingLandscape(paper, root, cold = false) {
   const outside = paper.group(root, 'moving-window-landscape', 0, 0, 5);
-  paper.box(outside, cold ? '#c5b4aa' : '#f0bc87', 25, 8, .15, 0, 3.5, 12, .14);
+  paper.box(outside, cold ? '#a9bdd8' : '#f0bc87', 25, 8, .15, 0, 3.5, 12, .14);
   const distant = hills(paper, outside, 0, 7, cold);
   const foreground = paper.group(outside, 'near-window-trees', 0, 0, 3.5);
-  for (let i = -6; i <= 10; i++) tree(paper, foreground, i * 1.3, Math.cos(i) * .65, .73 + .23 * Math.sin(i), i + 7);
-  paper.box(foreground, cold ? '#b4a49d' : '#ce986d', 32, .06, 4, 1, -.02, 0);
+  for (let i = -6; i <= 10; i++) {
+    tree(paper, foreground, i * 1.3, Math.cos(i) * .65, .73 + .23 * Math.sin(i), i + 7,
+      cold ? ['#647c8d', '#7593a6', '#9eb5c8', '#bccddd'] : undefined);
+  }
+  paper.box(foreground, cold ? '#b6c7dd' : '#ce986d', 32, .06, 4, 1, -.02, 0);
   return (t) => {
     foreground.position.x = 3.9 - t * 2.63;
     distant.position.x = 1.1 - t * .48;
@@ -32,7 +35,7 @@ export function movingLandscape(paper, root, cold = false) {
 }
 
 export function cafe(paper, root, hotpot, options = {}) {
-  const { center = 0, z = 1, booth = false, showPair = () => true } = options;
+  const { center = 0, z = 1, booth = false, showPair = () => true, decorate } = options;
   const room = paper.group(root, 'dinner-room', center, 0, z - 1);
   if (!booth) floor(paper, room, hotpot ? '#a06556' : '#b98665', 12, 12);
   if (!booth) {
@@ -46,6 +49,7 @@ export function cafe(paper, root, hotpot, options = {}) {
     }
   }
   const desk = table(paper, room, 0, 1, 1.92, 1.23);
+  const animateDecor = decorate?.(paper, room, desk);
   chair(paper, room, 1.22, 1.21, 1.23);
   chair(paper, room, -1.22, 1.21, -1.23);
   const people = [person(paper, room, 'boy', 1.2, 1.18, 1.2), person(paper, room, 'girl', -1.2, 1.18, -1.19)];
@@ -90,6 +94,7 @@ export function cafe(paper, root, hotpot, options = {}) {
     }
   }
   return (t, p) => {
+    animateDecor?.(t);
     people.forEach((actor, index) => {
       actor.root.visible = showPair(t);
       actor.pose('sit', .72 + t + index * .55);

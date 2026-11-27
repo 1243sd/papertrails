@@ -52,7 +52,7 @@ export function suitcase(paper, parent, color, x, y, z) {
   return bag;
 }
 
-export function tree(paper, parent, x, z, size, index = 0) {
+export function tree(paper, parent, x, z, size, index = 0, colors = foliage) {
   const trunk = paper.group(parent, 'folded-maple', x, 0, z);
   trunk.scale.setScalar(size);
   paper.disk(trunk, '#7d4f47', .055, .12, 1.85, .06, .94, 0, 6).rotation.z = -.09;
@@ -67,7 +67,7 @@ export function tree(paper, parent, x, z, size, index = 0) {
     const pz = Math.sin(i * 1.79) * .32;
     const geometry = [[-.64, -.3], [-.38, -.49], [-.03, -.46], [.43, -.36], [.62, -.06],
       [.53, .26], [.23, .46], [-.07, .49], [-.32, .36], [-.59, .13]];
-    const crown = paper.cut(trunk, foliage[(index + i) % foliage.length], geometry, .095, px, py, pz);
+    const crown = paper.cut(trunk, colors[(index + i) % colors.length], geometry, .095, px, py, pz);
     crown.scale.setScalar(.61 + .07 * (i % 3));
     crown.rotation.y = Math.cos(angle) * .67;
     crown.rotation.z = Math.sin(angle) * .42;

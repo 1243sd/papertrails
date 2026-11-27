@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 const PI = Math.PI;
 const UP = new THREE.Vector3(0, 1, 0);
-const CANOPY = ['#811d33', '#a92237', '#ba2d3d', '#cf3b42', '#df4a42', '#ea7145', '#f1a64e'];
+const CANOPY = ['#811d33', '#a92237', '#ba2d3d', '#cf3b42', '#df4a42', '#e85a41', '#ef814b'];
 const LITTER = ['#8e3b2c', '#a1422b', '#b84b2b', '#c96432', '#d98a3e', '#e1a354', '#e9bf6b'];
 const BARK = ['#492d29', '#5b382b', '#60382c', '#704732', '#825139'];
 
@@ -32,7 +32,7 @@ function paperFan(outline, fold) {
   return geometry;
 }
 
-function mapleGeometry() {
+export function mapleGeometry() {
   return paperFan([
     [0, .55, -.02], [.082, .255], [.159, .292, -.018], [.141, .16], [.392, .31, -.092], [.326, .154],
     [.526, .129, -.012], [.439, .032], [.466, -.024], [.215, -.155], [.26, -.271, -.055], [.104, -.252],
@@ -174,9 +174,9 @@ export function populateAutumnForest(scene, own, reducedMotion) {
   }
 
   for (const side of [-1, 1]) {
-    for (let i = 0; i < 14; i++) {
-      const z = 5 - i * 4.36 + range(-.87, .82) + (side === 1 ? -1.22 : 0);
-      const x = side * range(3.22, 4.41);
+    for (let i = 0; i < 20; i++) {
+      const z = 7 - i * 3.57 + range(-.74, .76) + (side === 1 ? -1.43 : 0);
+      const x = side * range(3.45, 4.61);
       tree(x, z, range(4.95, 7.15), range(.23, .45), side, false);
       tree(side * range(5.3, 9.4), z + range(-2.51, 1.39), range(4.11, 7.05), range(.19, .40), side, true);
       tree(side * range(9.35, 15.5), z + range(-3.03, 1.9), range(4.29, 7.75), range(.21, .40), side, true, true);
@@ -186,6 +186,13 @@ export function populateAutumnForest(scene, own, reducedMotion) {
       const point = vector(side * range(3.78, 12), height, range(-56, 7));
       branch(trunks, vector(point.x - .1, -.04, point.z), point, .046, .88, pick(BARK));
       sprig(point, range(.29, .89), range(-.4, .4), Math.floor(range(0, 4)), 9);
+    }
+  }
+
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 16; i++) {
+      const z = 9 - i * 4.95 + range(-1.3, 1.3);
+      tree(side * range(16, 20.2), z, range(4.85, 7.35), range(.20, .35), side, true, true);
     }
   }
 
@@ -248,10 +255,12 @@ export function populateAutumnForest(scene, own, reducedMotion) {
   barkGeometry.computeVertexNormals();
   const barkMesh = new THREE.Mesh(barkGeometry, bark);
   barkMesh.name = 'folded-maple-trunks';
+  barkMesh.castShadow = true;
+  barkMesh.receiveShadow = true;
   root.add(barkMesh);
-  instanced('maple-branches', woodside, wood, trunks);
+  instanced('maple-branches', woodside, wood, trunks, true).receiveShadow = true;
   instanced('bark-grain', woodside, wood, grooves);
-  instanced('maple-cut-paper-crowns', crown, paper, crowns);
+  instanced('maple-cut-paper-crowns', crown, paper, crowns, true);
   instanced('maples-canopy-tips', mapleTip, paper, leaves);
   const floor = instanced('maple-leaf-litter', maple, paper, litter);
   floor.receiveShadow = true;

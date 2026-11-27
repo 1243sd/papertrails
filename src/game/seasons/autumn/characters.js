@@ -54,47 +54,143 @@ export function createCharacter(kind) {
   const hair = girl ? '#774728' : '#292222';
   const hairLight = girl ? '#a36536' : '#413333';
   const glint = girl ? '#c18b50' : '#51413b';
-  const coat = girl ? '#e3c79d' : '#cd9698';
-  const trim = girl ? '#a78668' : '#ac757c';
-  const cuff = girl ? '#ead2af' : '#d8a5a6';
-  const pants = girl ? '#514147' : '#413e4b';
-  const boot = girl ? '#523735' : '#493833';
-  const shirt = girl ? '#4c322c' : '#f2e9d7';
+  const coat = '#cd9698';
+  const trim = '#ac757c';
+  const cuff = '#d8a5a6';
+  const pants = '#413e4b';
+  const boot = '#493833';
+  const shirt = '#f2e9d7';
+  const rose = '#c36d81';
+  const ribbon = '#963e5a';
+  const lace = '#fff0d9';
   const skeleton = group(root);
   const upper = group(skeleton, 0, .67, 0);
+  let skirt;
 
-  cut(upper, [coat, trim], -.119, .234, (s) => {
-    s.moveTo(0, .603);
-    s.lineTo(.132, .577);
-    s.quadraticCurveTo(.18, .562, .181, .48);
-    s.bezierCurveTo(.168, .31, girl ? .162 : .156, .20, girl ? .217 : .17, .025);
-    s.quadraticCurveTo(.137, -.008, .061, -.013);
-    s.quadraticCurveTo(.027, -.032, -.028, -.012);
-    s.lineTo(girl ? -.221 : -.164, .006);
-    s.bezierCurveTo(girl ? -.175 : -.166, .19, -.162, .34, -.176, .45);
-    s.quadraticCurveTo(-.187, .542, -.133, .573);
-    s.closePath();
-  });
-  cut(upper, [shirt, trim], -.139, .014, (s) => {
-    s.moveTo(-.083, .578);
-    s.lineTo(.078, .578);
-    s.lineTo(.052, girl ? .22 : .466);
-    s.lineTo(-.038, girl ? .22 : .47);
-    s.closePath();
-  });
-  for (const side of [-1, 1]) {
-    cut(upper, [girl ? cuff : shirt, trim], -.151, .015, (s) => {
-      s.moveTo(side * .119, .579);
-      s.lineTo(side * .018, .507);
-      s.lineTo(side * (girl ? .065 : .06), girl ? .343 : .454);
-      s.lineTo(side * .145, .506);
+  function bow(parent, x, y, z, size, angle = 0, back = false) {
+    const knot = group(parent, x, y, z);
+    knot.scale.setScalar(size);
+    knot.rotation.set(0, back ? Math.PI : 0, angle, 'YXZ');
+    cut(knot, [ribbon, '#713047'], -.006, .022, (s) => {
+      s.moveTo(0, -.012);
+      s.lineTo(-.064, -.081); s.lineTo(-.037, -.077); s.lineTo(-.027, -.098);
+      s.lineTo(0, -.039);
+      s.lineTo(.035, -.097); s.lineTo(.041, -.076); s.lineTo(.067, -.077);
+      s.closePath();
+    }, .003);
+    for (const side of [-1, 1]) {
+      cut(knot, [rose, ribbon], -.031, .032, (s) => {
+        s.moveTo(0, 0);
+        s.bezierCurveTo(side * .083, .082, side * .112, .064, side * .100, .020);
+        s.bezierCurveTo(side * .114, -.040, side * .079, -.046, 0, -.014);
+        s.closePath();
+      }, .006);
+      strip(knot, ribbon, .003, [[0, -.005, -.044], [side * .038, .012, -.041], [side * .068, .026, -.037]]);
+    }
+    oval(knot, rose, 0, 0, -.030, .023, .022, .020);
+  }
+
+  if (girl) {
+    cut(upper, [rose, ribbon], -.118, .226, (s) => {
+      s.moveTo(-.132, .55);
+      s.quadraticCurveTo(0, .588, .132, .55);
+      s.quadraticCurveTo(.174, .538, .168, .466);
+      s.quadraticCurveTo(.127, .367, .128, .221);
+      s.quadraticCurveTo(0, .198, -.128, .221);
+      s.quadraticCurveTo(-.127, .367, -.168, .466);
+      s.quadraticCurveTo(-.174, .538, -.132, .55);
+    });
+    cut(upper, [lace, '#e2bfb1'], -.135, .022, (s) => {
+      s.moveTo(-.081, .566); s.lineTo(.081, .566);
+      s.quadraticCurveTo(.062, .485, .051, .430);
+      s.quadraticCurveTo(0, .391, -.051, .430);
+      s.quadraticCurveTo(-.062, .485, -.081, .566);
+    }, .006);
+    for (const side of [-1, 1]) {
+      const collar = oval(upper, lace, side * .055, .542, -.141, .055, .027, .020);
+      collar.rotation.z = side * .36;
+      strip(upper, '#ebacb3', .005, [[side * .096, .52, -.13], [side * .079, .407, -.128], [side * .085, .252, -.129]]);
+    }
+    bow(upper, 0, .484, -.146, .55);
+    for (const y of [.402, .350, .298]) oval(upper, lace, 0, y, -.135, .008, .008, .006);
+    oval(upper, skin, 0, .587, -.015, .069, .094, .065);
+    oval(upper, lace, 0, .57, 0, .104, .025, .105);
+
+    skirt = group(upper, 0, .232, 0);
+    skirt.name = 'autumn-lolita-skirt';
+    // Continuous flutes run through the skirt, ribbon band and scalloped petticoat.
+    const profile = [
+      [0, .142, .126, 0, 0, 1],
+      [-.049, .153, .139, .005, 0, 1],
+      [-.085, .206, .175, .008, 0, 2],
+      [-.161, .265, .217, .014, 0, 2],
+      [-.307, .315, .254, .018, .002, 0],
+      [-.316, .318, .256, .018, .002, 2],
+      [-.328, .321, .259, .019, .003, 1],
+      [-.342, .322, .260, .019, .004, 1],
+      [-.380, .326, .264, .021, .009, 0],
+      [-.417, .315, .253, .020, .012, 0],
+      [-.426, .293, .232, .018, .012, 0],
+      [-.347, .270, .213, .015, .004, 0],
+      [-.074, .132, .116, 0, 0, 0],
+      [0, .130, .113, 0, 0, 0],
+    ];
+    const slices = 96;
+    const positions = [];
+    const indices = [];
+    const fabric = own(new THREE.BufferGeometry());
+    for (let ring = 0; ring < profile.length; ring++) {
+      const [y, width, depth, fold, scallop, color] = profile[ring];
+      const start = indices.length;
+      for (let i = 0; i < slices; i++) {
+        const angle = i / slices * Math.PI * 2;
+        const flute = fold * Math.cos(12 * angle);
+        positions.push(
+          Math.sin(angle) * (width + flute),
+          y + scallop * Math.cos(12 * angle),
+          Math.cos(angle) * (depth + flute),
+        );
+        const a = ring * slices + i;
+        const b = ring * slices + (i + 1) % slices;
+        const next = (ring + 1) % profile.length * slices;
+        indices.push(a, next + i, b, b, next + i, next + (i + 1) % slices);
+      }
+      fabric.addGroup(start, indices.length - start, color);
+    }
+    fabric.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    fabric.setIndex(indices);
+    fabric.computeVertexNormals();
+    mesh(skirt, fabric, [lace, ribbon, rose]);
+    bow(upper, 0, .200, .135, 1.04, .04, true);
+  } else {
+    cut(upper, [coat, trim], -.119, .234, (s) => {
+      s.moveTo(0, .603);
+      s.lineTo(.132, .577);
+      s.quadraticCurveTo(.18, .562, .181, .48);
+      s.bezierCurveTo(.168, .31, .156, .20, .17, .025);
+      s.quadraticCurveTo(.137, -.008, .061, -.013);
+      s.quadraticCurveTo(.027, -.032, -.028, -.012);
+      s.lineTo(-.164, .006);
+      s.bezierCurveTo(-.166, .19, -.162, .34, -.176, .45);
+      s.quadraticCurveTo(-.187, .542, -.133, .573);
       s.closePath();
     });
-    if (girl) strip(upper, trim, .009, [[side * .085, .125, -.136], [side * .117, .14, -.142], [side * .141, .163, -.135]]);
-  }
-  if (girl) {
-    for (let i = 0; i < 3; i++) oval(upper, '#9a795f', .067, .29 - i * .074, -.154, .010, .010, .007);
-  } else {
+    cut(upper, [shirt, trim], -.139, .014, (s) => {
+      s.moveTo(-.083, .578);
+      s.lineTo(.078, .578);
+      s.lineTo(.052, .466);
+      s.lineTo(-.038, .47);
+      s.closePath();
+    });
+    for (const side of [-1, 1]) {
+      cut(upper, [shirt, trim], -.151, .015, (s) => {
+        s.moveTo(side * .119, .579);
+        s.lineTo(side * .018, .507);
+        s.lineTo(side * .06, .454);
+        s.lineTo(side * .145, .506);
+        s.closePath();
+      });
+    }
     cut(upper, ['#3f4257', '#303344'], -.168, .013, (s) => {
       s.moveTo(-.031, .507); s.lineTo(.031, .503); s.lineTo(.023, .466);
       s.lineTo(.047, .291); s.lineTo(.006, .245); s.lineTo(-.034, .278);
@@ -119,12 +215,13 @@ export function createCharacter(kind) {
       s.quadraticCurveTo(0, -.093, -.087, -.076); s.closePath();
     });
     strip(bag, '#c7a27c', .006, [[-.082, .017, .050], [0, -.019, .058], [.087, .011, .05]]);
+    strip(upper, trim, .004, [[.042, .488, .122], [.036, .302, .124], [.027, .12, .123], [.041, .009, .123]]);
+    oval(upper, skin, 0, .587, -.015, .069, .094, .065);
+    oval(upper, coat, 0, .572, 0, .109, .025, .097);
   }
-  strip(upper, trim, .004, [[.042, .488, .122], [.036, .302, .124], [.027, .12, .123], [.041, .009, .123]]);
-  oval(upper, skin, 0, .587, -.015, .069, .094, .065);
-  oval(upper, girl ? shirt : coat, 0, .572, 0, .109, .025, .097);
 
   const head = group(upper, 0, .769, -.022);
+  head.name = 'autumn-character-head';
   const faceGeometry = own(new THREE.SphereGeometry(1, 34, 24));
   const points = faceGeometry.attributes.position;
   const tones = [], tone = new THREE.Color();
@@ -150,16 +247,20 @@ export function createCharacter(kind) {
   oval(head, hair, -.006, girl ? .045 : .065, .04, girl ? .157 : .159, girl ? .160 : .155, .122);
   for (const side of [-1, 1]) {
     oval(head, skin, side * .134, -.023, -.015, .022, .033, .030);
-    const eye = oval(head, '#f0e1d1', side * .055, -.022, -.138, .023, girl ? .011 : .010, .005);
+    const eye = oval(head, '#f0e1d1', side * .055, -.022, -.138, .023, girl ? .016 : .010, .005);
     eye.rotation.z = side * (girl ? .15 : .08);
-    oval(head, '#503430', side * .054, -.023, -.143, .0092, girl ? .010 : .009, .0035);
-    oval(head, '#fff0dd', side * .054 - .003, -.019, -.147, .0028, .0028, .0016);
+    oval(head, '#503430', side * .054, -.023, -.143, girl ? .013 : .0092, girl ? .015 : .009, .0035);
+    oval(head, '#fff0dd', side * .054 - .003, girl ? -.016 : -.019, -.147, .0028, .0028, .0016);
+    if (girl) {
+      const cheek = oval(head, '#e6a393', side * .077, -.059, -.123, .021, .010, .003);
+      cheek.rotation.y = side * -.56;
+    }
     strip(head, girl ? '#64422f' : hair, .0029,
       [[side * .029, .012, -.142], [side * .054, .017, -.138], [side * .080, .009, -.131]]);
     strip(head, '#52352c', girl ? .0024 : .0017,
-      [[side * .036, -.020, -.141], [side * .055, -.012, -.145], [side * .077, -.017, -.139]]);
+      [[side * .036, -.020, -.141], [side * .055, girl ? -.008 : -.012, -.145], [side * .077, -.017, -.139]]);
   }
-  oval(head, skin, 0, -.048, -.143, girl ? .014 : .016, .021, .011);
+  oval(head, skin, 0, -.048, -.143, girl ? .010 : .016, girl ? .013 : .021, girl ? .007 : .011);
   strip(head, girl ? '#a96e64' : '#9e6a5d', .0025,
     [[-.024, -.091, -.124], [-.011, -.094, -.132], [.008, -.095, -.132], [.022, -.090, -.124]]);
   if (!girl) {
@@ -215,6 +316,7 @@ export function createCharacter(kind) {
 
   const backHair = group(head, 0, .06, .075);
   if (girl) {
+    bow(head, -.106, .166, -.093, .83, .37);
     cut(backHair, [hair, hairLight], -.002, .084, (s) => {
       s.moveTo(-.116, .094);
       s.bezierCurveTo(-.187, .002, -.152, -.101, -.169, -.173);
@@ -251,14 +353,25 @@ export function createCharacter(kind) {
   const forearm = own(new THREE.CylinderGeometry(.050, .043, .178, 9));
   const arms = [-1, 1].map((side) => {
     const arm = group(upper, side * .162, .502, -.002);
+    arm.name = side < 0 ? 'autumn-left-arm' : 'autumn-right-arm';
     const elbow = group(arm, 0, -.214);
     const wrist = group(elbow, 0, -.196);
-    mesh(arm, sleeve, coat, 0, -.105);
-    mesh(elbow, forearm, coat, 0, -.083);
-    oval(elbow, cuff, 0, -.161, 0, .048, .028, .049);
+    if (girl) {
+      mesh(arm, sleeve, lace, 0, -.109);
+      oval(arm, '#f8e4ca', 0, -.065, 0, .081, .112, .077);
+      oval(arm, rose, 0, -.148, 0, .063, .028, .064);
+      mesh(elbow, forearm, lace, 0, -.083);
+      oval(elbow, rose, 0, -.153, 0, .049, .025, .050);
+      oval(elbow, lace, 0, -.176, 0, .055, .025, .053);
+    } else {
+      mesh(arm, sleeve, coat, 0, -.105);
+      mesh(elbow, forearm, coat, 0, -.083);
+      oval(elbow, cuff, 0, -.161, 0, .048, .028, .049);
+    }
     oval(wrist, skin, 0, -.002, -.009, .039, .052, .030);
     oval(wrist, skin, -side * .025, .009, -.033, .017, .029, .016);
     const grip = group(wrist, -side * .013, -.008, -.041);
+    grip.name = side < 0 ? 'autumn-hand-left' : 'autumn-hand-right';
     return { arm, elbow, grip };
   });
 
@@ -268,11 +381,18 @@ export function createCharacter(kind) {
     const hip = group(skeleton, side * .089, .693, .005);
     const knee = group(hip, 0, -.292);
     const ankle = group(knee, 0, -.29);
-    mesh(hip, thigh, pants, 0, -.141);
-    mesh(knee, calf, pants, 0, -.138);
-    oval(ankle, boot, 0, -.037, -.037, .065, .066, .119);
+    mesh(hip, thigh, girl ? lace : pants, 0, -.141);
+    mesh(knee, calf, girl ? lace : pants, 0, -.138);
+    oval(ankle, girl ? ribbon : boot, 0, girl ? -.055 : -.037, -.037, .065, girl ? .047 : .066, .119);
     oval(ankle, '#392c2a', 0, -.081, -.040, .066, .021, .119);
-    oval(ankle, girl ? '#a68470' : '#7c6a5d', 0, .003, .004, .055, .030, .064);
+    if (girl) {
+      oval(knee, lace, 0, -.005, 0, .062, .061, .062);
+      oval(ankle, lace, 0, -.012, -.032, .050, .023, .072);
+      oval(ankle, ribbon, 0, .001, -.028, .063, .014, .021);
+      oval(ankle, '#e9b77e', side * .046, .009, -.032, .011, .011, .014);
+    } else {
+      oval(ankle, '#7c6a5d', 0, .003, .004, .055, .030, .064);
+    }
     return { hip, knee, ankle };
   });
 
@@ -289,6 +409,10 @@ export function createCharacter(kind) {
     upper.rotation.set(sit ? .13 * p : walk ? .084 : 0, walk ? Math.sin(stride) * .07 : 0, walk ? Math.sin(stride) * .035 : 0);
     head.rotation.set(offer ? .12 * p : raise ? -.21 * p : breath * .025, turn ? .66 * p : Math.sin(t * 1.65) * .069, .027 + breath * .026);
     backHair.rotation.set(walk ? .17 + Math.sin(stride) * .066 : .025 * breath, 0, .025 * breath);
+    if (skirt) {
+      skirt.rotation.set(sit ? .64 * p : walk ? -.07 + Math.cos(stride * 2) * .036 : 0,
+        walk ? Math.sin(stride) * .055 : 0, walk ? Math.sin(stride) * .044 : breath * .012);
+    }
 
     for (let i = 0; i < 2; i++) {
       const side = i === 0 ? -1 : 1;
@@ -306,11 +430,48 @@ export function createCharacter(kind) {
       arm.rotation.set((raise ? 2.14 : .98) * p, -.14 * p, .13 * (1 - p));
       elbow.rotation.x = (raise ? .39 : .48) * p + .14 * (1 - p);
     }
+    if (action === 'reveal_bouquet') {
+      const { arm, elbow } = arms[1];
+      arm.rotation.set(THREE.MathUtils.lerp(-.88, 1.03, p), -.14 * p, THREE.MathUtils.lerp(.12, -.06, p));
+      elbow.rotation.x = THREE.MathUtils.lerp(.27, .48, p);
+      head.rotation.x = .11 * (1 - p);
+    }
+  }
+
+  const handDirection = new THREE.Vector3();
+  const forearmDirection = new THREE.Vector3();
+  function reachHand(side, target) {
+    const { arm, elbow, grip } = arms[side === 'left' ? 0 : 1];
+    arm.parent.worldToLocal(handDirection.copy(target)).sub(arm.position);
+    forearmDirection.copy(grip.parent.position).add(grip.position);
+    const upperLength = -elbow.position.y;
+    const hingeLength = Math.hypot(forearmDirection.y, forearmDirection.z);
+    // Solve at the elbow first, then align the resulting grip with the shared target.
+    const bend = (handDirection.lengthSq() - upperLength ** 2 - forearmDirection.lengthSq()) /
+      (2 * upperLength * hingeLength);
+    elbow.rotation.x = Math.acos(THREE.MathUtils.clamp(bend, -1, 1)) -
+      Math.atan2(-forearmDirection.z, -forearmDirection.y);
+    forearmDirection.applyEuler(elbow.rotation).add(elbow.position);
+    arm.quaternion.setFromUnitVectors(forearmDirection.normalize(), handDirection.normalize());
+    return grip;
+  }
+
+  const gaze = new THREE.Vector3();
+  function lookToward(target, tilt, weight) {
+    head.parent.worldToLocal(gaze.copy(target)).sub(head.position);
+    const pitch = Math.atan2(gaze.y, Math.hypot(gaze.x, gaze.z));
+    const yaw = Math.atan2(-gaze.x, -gaze.z);
+    head.rotation.set(
+      THREE.MathUtils.lerp(head.rotation.x, pitch, weight),
+      THREE.MathUtils.lerp(head.rotation.y, yaw, weight),
+      THREE.MathUtils.lerp(head.rotation.z, tilt, weight),
+      'YXZ',
+    );
   }
 
   pose('idle');
   return {
-    root, pose, hand: arms[1].grip,
+    root, pose, reachHand, lookToward, hand: arms[1].grip,
     dispose() {
       root.removeFromParent();
       for (const resource of resources) resource.dispose();

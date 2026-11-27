@@ -198,34 +198,117 @@ export function createLetter(data, close, reduced) {
   return { element, update };
 }
 
+function photoAlbum(photos, images, { label, emptyLabel }) {
+  const element = node('section', 'autumn-photo-album');
+  element.setAttribute('aria-label', label);
+  element.classList.toggle('autumn-photo-stack', photos.length > 1);
+  let selected = 0;
+  let motion = [];
+  const cards = (photos.length ? photos : [null]).map((photo, index) => {
+    const card = node('div', 'autumn-photo-card');
+    const paper = node('figure', 'autumn-photo-paper');
+    const page = node('div', 'autumn-photo-page');
+    const image = node('img', 'autumn-photo-image');
+    const empty = node('div', 'autumn-empty-photo', photo ? '照片暂时无法打开' : emptyLabel);
+    const shine = node('i', 'autumn-photo-shine');
+    shine.setAttribute('aria-hidden', 'true');
+    const caption = node('figcaption', 'autumn-photo-caption', photo?.caption);
+    caption.hidden = !photo?.caption;
+    const lift = button('', (event) => flip(index, event.detail === 0), 'autumn-photo-lift');
+    lift.setAttribute('aria-label', '翻开第 ' + (index + 1) + ' 张照片' + (photo?.caption ? '，' + photo.caption : ''));
+    lift.append(node('span', 'autumn-photo-tab', '翻开'));
+    const loader = createPhotoLoader(image, empty);
+    loader.load(images?.[photo?.image], photo?.caption || label);
+    page.append(image, empty, shine);
+    paper.append(page, caption);
+    card.append(paper, lift);
+    element.append(card);
+    return { card, paper, lift, shine, loader };
+  });
+  function arrange() {
+    cards.forEach(({ card, paper, lift }, i) => {
+      const front = i === selected;
+      card.dataset.layer = front ? 'front' : 'back';
+      paper.setAttribute('aria-hidden', String(!front));
+      lift.hidden = front;
+    });
+  }
+
+  function stopMotion() {
+    motion.forEach((animation) => animation.cancel());
+    motion = [];
+  }
+
+  function flip(index, keyboard) {
+    if (index === selected) return;
+    const incoming = cards[index];
+    const outgoing = cards[selected];
+    const animate = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const startIn = animate ? getComputedStyle(incoming.card).transform : '';
+    const startOut = animate ? getComputedStyle(outgoing.card).transform : '';
+    stopMotion();
+    selected = index;
+    arrange();
+    if (keyboard) outgoing.lift.focus({ preventScroll: true });
+    if (!animate) return;
+    const pull = 'perspective(950px) translate(' + Math.min(element.clientWidth * .32, innerWidth * .16) +
+      'px, -5%) rotateZ(11deg) rotateY(-29deg) scale(.95)';
+    const tuck = 'perspective(950px) translate(-7%, 4%) rotateZ(-6deg) rotateY(11deg) scale(.97)';
+    const timing = { duration: 625, easing: 'cubic-bezier(.29,.68,.29,1)' };
+    motion = [
+      incoming.card.animate([
+        { transform: startIn, zIndex: 1, offset: 0 },
+        { transform: pull, zIndex: 1, offset: .37 },
+        { transform: pull, zIndex: 4, offset: .40 },
+        { transform: getComputedStyle(incoming.card).transform, zIndex: 4, offset: 1 },
+      ], timing),
+      outgoing.card.animate([
+        { transform: startOut, zIndex: 3, offset: 0 },
+        { transform: tuck, zIndex: 3, offset: .37 },
+        { transform: tuck, zIndex: 1, offset: .40 },
+        { transform: getComputedStyle(outgoing.card).transform, zIndex: 1, offset: 1 },
+      ], timing),
+      incoming.shine.animate([
+        { transform: 'translateX(-115%)', opacity: 0, offset: 0 },
+        { transform: 'translateX(-36%)', opacity: .78, offset: .46 },
+        { transform: 'translateX(115%)', opacity: 0, offset: 1 },
+      ], timing),
+    ];
+  }
+
+  function reset() {
+    stopMotion();
+    selected = 0;
+    arrange();
+  }
+
+  arrange();
+  return {
+    element, reset,
+    dispose() {
+      reset();
+      cards.forEach(({ loader }) => loader.clear());
+    },
+  };
+}
+
 export function createLegacy(pack, close) {
   const item = pack.manifest.treasures.autumn;
   const { element, body } = page(item.title, undefined, close);
-  const photo = node('img', 'autumn-keepsake-photo');
-  const fallback = node('p', 'autumn-empty-photo', '照片暂时无法打开');
-  const loader = createPhotoLoader(photo, fallback);
-  body.append(photo, fallback, node('p', '', item.message));
-  loader.load(pack.images[item.image], item.title);
-  return { element, dispose: () => loader.clear() };
+  const album = photoAlbum([{ image: item.image }], pack.images, { label: item.title, emptyLabel: '照片暂时无法打开' });
+  album.element.classList.add('autumn-keepsake-album');
+  body.append(album.element, node('p', '', item.message));
+  return { element, dispose: album.dispose };
 }
 
 export function filmControls(spec, director, pack, close) {
   const element = node('section', 'autumn-film-overlay');
-  const frame = node('figure', 'autumn-film-photo');
-  const image = node('img');
-  const empty = node('div', 'autumn-empty-photo', '留给真实照片的位置');
-  const caption = node('figcaption');
-  frame.append(image, empty, caption);
-  const loader = createPhotoLoader(image, empty);
   const photos = pack?.manifest.treasures.autumn.memories?.[spec.id]?.photos ?? [];
   const ending = spec.ending ?? spec.title;
-  let index = 0, shown = false;
-  function choose(i) {
-    index = i;
-    const photo = photos[i];
-    caption.textContent = photo?.caption ?? '';
-    loader.load(pack?.images[photo?.image], photo?.caption ?? ending);
-  }
+  const album = photoAlbum(photos, pack?.images, { label: ending, emptyLabel: '留给真实照片的位置' });
+  const frame = album.element;
+  frame.classList.add('autumn-film-photo');
+  let shown = false;
   const header = node('header', 'autumn-film-title');
   const name = node('h2', '', spec.title);
   const date = node('time', '', spec.date);
@@ -243,9 +326,6 @@ export function filmControls(spec, director, pack, close) {
   const pause = emblem('暂停', 'Ⅱ', () => { director.toggle(); update(); });
   const skip = emblem('跳到结尾', '›|', () => { director.skip(); update(); });
   const replay = emblem('重播', '↻', () => { director.replay(); update(); pause.focus(); });
-  const prev = emblem('上一张', '‹', () => { choose(index - 1); update(); }, 'autumn-photo-turn autumn-photo-prev');
-  const next = emblem('下一张', '›', () => { choose(index + 1); update(); }, 'autumn-photo-turn autumn-photo-next');
-  frame.append(prev, next);
   controls.append(pause, skip, replay, emblem('返回大道', '↩', close));
   transport.append(progress, clock, controls);
   element.append(header, frame, subtitle, transport);
@@ -264,18 +344,14 @@ export function filmControls(spec, director, pack, close) {
     if (clock.textContent !== timestamp) clock.textContent = timestamp;
     pause.hidden = skip.hidden = ended;
     setEmblem(pause, paused ? '继续' : '暂停', paused ? '▶' : 'Ⅱ');
-    prev.hidden = next.hidden = !ended || photos.length < 2;
-    prev.disabled = index === 0;
-    next.disabled = index >= photos.length - 1;
     const title = ended ? ending : spec.title;
     const line = ended ? spec.lastLine ?? '' : director.caption;
     if (name.textContent !== title) name.textContent = title;
     if (subtitle.textContent !== line) subtitle.textContent = line;
     frame.hidden = !ended;
-    if (ended && !shown) choose(0);
-    else if (!ended && shown) loader.clear();
+    if (!ended && shown) album.reset();
     shown = ended;
   }
   update();
-  return { element, update, dispose: () => loader.clear() };
+  return { element, update, dispose: album.dispose };
 }

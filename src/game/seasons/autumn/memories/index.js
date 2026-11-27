@@ -61,6 +61,7 @@ export function createFilm(id) {
   });
   const keyWarm = new THREE.Color('#ffe2bd');
   const keyDusk = new THREE.Color('#e7b3bf');
+  const keyMoon = new THREE.Color('#bdc1ff');
   const skyDawn = new THREE.Color('#e3b89a');
   const skyDusk = new THREE.Color('#a87786');
   function sample(time) {
@@ -76,8 +77,8 @@ export function createFilm(id) {
     const zoom = frame ? (elapsed - frame.offset) / (frameEnd - frame.offset) : progress;
     cameraFrame(camera, camera.aspect, frame ?? active, ease(zoom));
     scene.background.set(active.sky);
-    key.color.copy(keyWarm);
-    key.intensity = 2.35;
+    key.color.copy(active.night ? keyMoon : keyWarm);
+    key.intensity = active.night ? 1.52 : 2.35;
     if (active.daylight) {
       scene.background.copy(skyDawn).lerp(skyDusk, ease(progress));
       key.color.lerp(keyDusk, ease(progress));
@@ -86,8 +87,12 @@ export function createFilm(id) {
     active.update(elapsed, progress, camera);
   }
   sample(0);
+  const finalShot = sets.at(-1);
   return {
     scene, camera, duration, sample,
+    animateEnding: finalShot.animateEnding
+      ? (hold) => finalShot.update(finalShot.end - finalShot.start + hold, 1, camera)
+      : null,
     shots: timeline.map(({ start, end, caption }) => ({ start, end, caption })),
     dispose() {
       paper.dispose();

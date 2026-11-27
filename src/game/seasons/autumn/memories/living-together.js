@@ -1,50 +1,58 @@
 import * as THREE from 'three';
 import { ease, floor, mix } from './paper.js';
-import { cup, lantern, leafScatter, person, suitcase, tree, windows } from './props.js';
-import { cafe, hills } from './sets.js';
+import { cup, lantern, leafScatter, person, suitcase, windows } from './props.js';
+import { cafe } from './sets.js';
+import { cityStreet, diningDetails, framedHouse, kitchenDetails, pathDetails, planter, porchDetails, shelfDetails, sofaDetails, windowDetails } from './living-together-details.js';
+import { sign } from './first-meeting-scenery.js';
+import { livingTogetherEnding } from './living-together-ending.js';
 
 function path(paper, root) {
-  floor(paper, root, '#b78b6b', 14, 17);
-  hills(paper, root, 0, 12);
-  const stones = paper.group(root, 'trail-to-home');
-  for (let i = 0; i < 15; i++) {
-    const x = Math.sin(i * .32 - .4) * .81;
-    const paver = paper.sheet(stones, i % 2 ? '#c4a28a' : '#be9980', 1.9, .57, .16, .046, x, .017, i * .69 - 1.49);
-    paver.rotation.set(-Math.PI / 2, 0, Math.sin(i) * .12);
-  }
-  for (const [x, z, scale] of [[-2.3, .81, .86], [2.83, 1.12, 1.16], [-2.3, 3.24, 1.02],
-    [2.44, 5.43, 1.18], [-3, 7.6, 1.5], [3.6, 7.8, .97]]) tree(paper, root, x, z, scale, Math.round(z));
-  leafScatter(paper, root, 55, 9.8, 12);
-  const home = paper.group(root, 'warm-house-along-trail', -.48, 0, 7.72);
-  paper.box(home, '#ba8b72', 3.1, 2.3, 2.4, 0, 1.15, .32);
-  paper.cut(home, '#9b625e', [[-1.82, 0], [0, .91], [1.82, 0]], 2.73, 0, 2.28, -1.05);
-  paper.sheet(home, '#815750', .82, 1.27, .075, .052, .24, .65, -.957);
-  windows(paper, home, -.62, 1.24, -.966, .64, .61, '#f1b16f', '#9f6958');
-  lantern(paper, home, .91, 1.57, -1.06, .48);
+  floor(paper, root, '#9f8a8a', 20, 19);
+  leafScatter(paper, root, 21, 7.8, 9);
+  const home = cityStreet(paper, root);
+  const guide = pathDetails(paper, root, home);
   const girl = person(paper, root, 'girl', -.32, 1.72, Math.PI);
   const bag = suitcase(paper, root, '#a77267', -.6, 0, 1.37);
   const shade = paper.shadow(root, 1.75, .9, 0, .04, 1.72, .72);
   return (t, p) => {
+    guide(t);
     girl.root.position.z = mix(.79, 3.49, p);
-    girl.root.position.x = .15 + .39 * Math.sin(p * 2.5);
+    girl.root.position.y = .07;
+    girl.root.position.x = .12 + .26 * Math.sin(p * 2.5);
     girl.root.rotation.y = Math.PI - .17 * Math.cos(p * 3.2);
     girl.pose('walk', t);
-    bag.position.set(girl.root.position.x - .38, .018 + .01 * Math.sin(t * 11), girl.root.position.z - .36);
+    bag.position.set(girl.root.position.x - .38, .087 + .01 * Math.sin(t * 11), girl.root.position.z - .36);
     bag.rotation.x = -.22 + .036 * Math.sin(t * 6);
-    shade.position.set(girl.root.position.x - .13, .039, girl.root.position.z - .12);
+    shade.position.set(girl.root.position.x - .13, .075, girl.root.position.z - .12);
   };
 }
 
 function entry(paper, root) {
-  floor(paper, root, '#b48265', 12, 11);
+  floor(paper, root, '#b1a29c', 12, 11);
   const house = paper.group(root, 'door-and-porch', 0, 0, 1.85);
-  for (const x of [-2.83, 2.83]) paper.box(house, '#ad725e', 4.02, 3.2, .29, x, 1.6, 0);
-  paper.box(house, '#ad725e', 1.68, .8, .29, 0, 2.8, 0);
+  for (const x of [-2.83, 2.83]) paper.box(house, '#b88f84', 4.02, 3.9, .29, x, 1.95, 0);
+  paper.box(house, '#b88f84', 1.68, 1.5, .29, 0, 3.15, 0);
   for (const side of [-1, 1]) {
-    for (let i = 0; i < 10; i++) paper.box(house, '#996958', 3.93, .013, .07, side * 2.82, .15 + i * .316, -.158);
+    for (let i = 0; i < 15; i++) {
+      const y = .15 + i * .256;
+      paper.box(house, '#ad847e', 3.93, .012, .034, side * 2.82, y, -.151);
+      for (let brick = 0; brick < 5; brick++) {
+        paper.box(house, '#ad847e', .010, .241, .024,
+          side * (1.13 + brick * .61 + i % 2 * .25), y + .126, -.153);
+      }
+    }
     paper.box(house, '#dbab88', .12, 2.41, .34, side * .77, 1.2, -.129);
   }
   paper.box(house, '#dbab88', 1.62, .14, .34, 0, 2.34, -.12);
+  paper.box(house, '#86717c', 1.94, .068, .57, 0, 2.45, -.30);
+  sign(paper, house, '单元入口', .8, .205, 0, 2.65, -.199, '#796075', '#f5dbbb');
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 12; col++) {
+      paper.box(root, '#9e8e8f', .39, .005, .012, (col - 5.5) * .396, .008, row * .57 - 1.12);
+      paper.box(root, '#a29591', .011, .005, .54,
+        (col - 5.5) * .396 + (row % 2) * .135, .008, row * .57 - .847);
+    }
+  }
   paper.box(house, '#c39679', 1.96, .14, .69, 0, .065, -.233);
   paper.box(house, '#d3a077', 1.66, .14, 1.44, 0, .065, .64);
   paper.box(house, '#8c5c55', 1.23, .018, .46, 0, .146, -.51);
@@ -67,18 +75,20 @@ function entry(paper, root) {
   const shaft = paper.surface(house, new THREE.ShapeGeometry(spill), shine, 0, .015, -.11);
   shaft.rotation.x = -Math.PI / 2;
   const bulb = paper.own(new THREE.PointLight('#ffc282', 0, 5.8, 1.9));
-  bulb.position.set(0, 1.65, .42);
+  bulb.position.set(.27, 1.85, .74);
   house.add(bulb);
   leafScatter(paper, root, 28, 6, 4.4);
   const boy = person(paper, root, 'boy', -.14, 2.21, -.16);
   boy.root.position.y = .138;
   const girl = person(paper, root, 'girl', .23, .04, 2.72);
   const bag = suitcase(paper, root, '#a77267', -.35, 0, -.4);
+  const light = porchDetails(paper, root, house, pivot);
   return (t) => {
     const open = ease((t - .62) / 1.58);
     pivot.rotation.y = -1.72 * open;
     shine.opacity = .27 * open;
-    bulb.intensity = 11 * open;
+    bulb.intensity = 3.4 * open;
+    light(t, open);
     boy.root.position.z = mix(2.39, 1.93, open);
     boy.pose(open < .81 ? 'idle' : 'arm_raise', t);
     girl.root.position.x = mix(.43, .31, ease(t / 1.36));
@@ -146,6 +156,7 @@ function personalObjects(paper, room) {
       paper.ball(shelf, '#e3ba9b', .068, .029, .08, x + shift, .915, -.064);
     }
   }
+  return shelf;
 }
 
 function room(paper, root, daylight) {
@@ -156,24 +167,42 @@ function room(paper, root, daylight) {
     paper.box(root, '#a77a64', .017, .009, 10, i * .675 - 6.75, .01, 1.13);
   }
   for (const x of [-3.22, 3.22]) lantern(paper, root, x, 2.81, 2.36, .82);
-  kitchen(paper, root, 3.12);
-  const boy = person(paper, root, 'boy', 3.64, 2.61, 2.83);
-  const girl = person(paper, root, 'girl', 2.82, 2.69, -2.63);
+  const counter = kitchen(paper, root, 3.12);
+  const cook = kitchenDetails(paper, counter);
+  for (const x of [1.47, -1.58]) {
+    framedHouse(paper, root, x, 2.41, 4.079, .91, true);
+    planter(paper, root, x, .011, 3.59, .68, ['#ce9f88', '#e8b496', '#eccd9f']);
+  }
+  const boy = person(paper, root, 'boy', 3.25, 2.84, 2.42);
+  const girl = person(paper, root, 'girl', 2.16, 2.70, -2.12);
   const spoon = paper.group(boy.hand, 'wooden-cooking-spoon', 0, -.052, -.025);
   paper.box(spoon, '#d0a27e', .019, .247, .019, 0, .068, 0);
   paper.ball(spoon, '#be8a63', .042, .064, .015, 0, .196, 0);
+  const stirTarget = new THREE.Vector3();
+  const spoonUp = new THREE.Vector3(0, 1, 0);
+  const stirAngle = new THREE.Vector3();
+  const handOrientation = new THREE.Quaternion();
+  const utensilOrientation = new THREE.Quaternion();
+  const showDinner = (t) => !daylight && t >= 2.25 && t < 4.23;
   const diner = cafe(paper, root, false, {
-    center: 0, z: 1.54, booth: true, showPair: (t) => !daylight && t >= 2.25 && t < 4.23,
+    center: 0, z: 1.54, booth: true, showPair: showDinner,
+    decorate: (kit, space, desk) => {
+      const animate = diningDetails(kit, space, desk);
+      return (t) => animate(t, showDinner(t));
+    },
   });
-  personalObjects(paper, root);
+  const shelf = personalObjects(paper, root);
+  const pairedMugs = shelfDetails(paper, shelf);
   const couch = sofa(paper, root, -3.21);
-  const couchBoy = person(paper, couch, 'boy', .38, -.203, .19);
-  const couchGirl = person(paper, couch, 'girl', -.39, -.199, -.17);
-  couchBoy.root.position.y = .012;
-  couchGirl.root.position.y = .016;
+  const living = sofaDetails(paper, root, couch);
+  const couchBoy = person(paper, couch, 'boy', .31, -.203, .19);
+  const couchGirl = person(paper, couch, 'girl', -.31, -.199, -.17);
+  couchBoy.root.position.y = .052;
+  couchGirl.root.position.y = .049;
+  couchBoy.root.rotation.z = .08;
+  couchGirl.root.rotation.z = -.058;
   const lightWindow = windows(paper, root, -3.11, 2.2, 4.074, 1.94, 1.42, '#f2bd8c', '#a27567');
-  const windowPaint = paper.own(lightWindow.children[0].material.clone());
-  lightWindow.children[0].material = windowPaint;
+  const weather = windowDetails(paper, root, lightWindow);
   const rug = paper.sheet(root, '#a86b6b', 2.54, 1.76, .12, .026, -3.11, .012, 1.41);
   rug.rotation.x = -Math.PI / 2;
   const pool = paper.own(new THREE.MeshBasicMaterial({
@@ -185,24 +214,28 @@ function room(paper, root, daylight) {
   for (const x of [0, .68]) {
     paper.surface(rays, new THREE.ShapeGeometry(ray), pool, x, 0, 0).rotation.x = -Math.PI / 2;
   }
-  const dawn = new THREE.Color('#ffe0ac');
-  const noon = new THREE.Color('#fff2c5');
-  const dusk = new THREE.Color('#b887a1');
   return (t, p) => {
     boy.root.visible = girl.root.visible = !daylight && t < 2.25;
-    boy.pose('arm_raise', .27 + .14 * Math.sin(t * 6.1));
-    girl.pose('handover', .32 + .1 * Math.sin(t * 5.3 + .7));
-    spoon.rotation.set(.74, .15, .52 + .21 * Math.sin(t * 6.1));
+    if (boy.root.visible) {
+      boy.pose('idle', t);
+      girl.pose('handover', .24 + .07 * Math.sin(t * 4.3 + .7));
+      stirTarget.set(2.84 + .038 * Math.sin(t * 5), 1.165, 3.075 + .039 * Math.cos(t * 5));
+      boy.reachHand('right', root.localToWorld(stirTarget));
+      stirAngle.set(-.76, -.25 + .105 * Math.cos(t * 5), .51 + .14 * Math.sin(t * 5)).normalize();
+      utensilOrientation.setFromUnitVectors(spoonUp, stirAngle);
+      spoon.quaternion.copy(boy.hand.getWorldQuaternion(handOrientation).invert()).multiply(utensilOrientation);
+    }
+    cook(t);
     diner(t, p);
+    pairedMugs(t);
     couchBoy.root.visible = couchGirl.root.visible = daylight || t >= 5.16;
     couchBoy.pose('sit', t + .75);
     couchGirl.pose('sit', t + 1.03);
     const daylightPhase = daylight ? p : .16;
+    living(t, daylight ? ease((p - .50) * 2) : .37);
+    weather(t, daylightPhase, daylight);
     rays.position.x = mix(-4.52, -2.95, daylightPhase);
-    pool.opacity = .23 * Math.sin(Math.PI * (daylightPhase * .89 + .095)) + .045;
-    windowPaint.color.copy(daylightPhase < .5 ? dawn : noon).lerp(daylightPhase < .5 ? noon : dusk,
-      ease(daylightPhase < .5 ? daylightPhase * 2 : (daylightPhase - .5) * 2));
-    windowPaint.emissive.copy(windowPaint.color);
+    pool.opacity = (.21 * Math.sin(Math.PI * (daylightPhase * .89 + .095)) + .031) * (1 - ease((daylightPhase - .72) * 4));
   };
 }
 
@@ -210,7 +243,7 @@ export const livingTogether = [
   {
     start: 0, end: 3, caption: '拉着行李，走向以后一起住的地方',
     from: [-.9, 2.03, -3.79], to: [-.91, 2.44, -2.3], focus: [.17, 1.16, 2.1],
-    endFocus: [0, 1.19, 4.02], lens: 41, sky: '#e4b68e', set: path,
+    endFocus: [0, 1.19, 4.02], lens: 41, sky: '#d9b9ae', set: path,
   },
   {
     start: 3, end: 6, caption: '门开了，屋里亮着暖灯',
@@ -220,7 +253,7 @@ export const livingTogether = [
   {
     start: 6, end: 13, caption: '一起做饭、吃饭，把日常变成两个人的',
     frames: [
-      { offset: 0, from: [4.7, 2.36, -.19], to: [4.11, 2.16, .12], focus: [3.28, 1.22, 2.85], lens: 39 },
+      { offset: 0, from: [4.31, 2.36, -.52], to: [3.72, 2.16, -.21], focus: [2.81, 1.18, 2.92], lens: 40 },
       { offset: 2.25, from: [-.44, 2.04, -2.62], to: [.21, 2.01, -2.37], focus: [0, 1.04, 1.62], lens: 38 },
       { offset: 4.23, from: [-.62, 1.76, 1.28], to: [-.3, 1.73, 1.63], focus: [-.25, 1.45, 3.79], lens: 39 },
       { offset: 5.16, from: [-3.62, 2.07, -.83], to: [-3.41, 1.98, -.95], focus: [-3.24, 1.1, 2.66], lens: 40 },
@@ -233,5 +266,9 @@ export const livingTogether = [
     endFocus: [-3.13, 1.5, 2.93], lens: 40, sky: '#bd8a79', daylight: true,
     set: (paper, root) => room(paper, root, true),
   },
-  { start: 16, end: 18, caption: '' },
+  {
+    start: 16, end: 19, caption: '',
+    from: [.64, 3.06, -5.92], to: [.18, 2.78, -5.62], focus: [0, 2.16, 5.76],
+    lens: 46, sky: '#4c365a', animateEnding: true, set: livingTogetherEnding,
+  },
 ];

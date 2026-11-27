@@ -9,8 +9,8 @@ const BENCH_TITLES = ['第一幕', '第二幕', '第三幕', '第四幕', '第�
 export function createAutumnStage({ reducedMotion = false } = {}) {
   const scene = new THREE.Scene();
   scene.name = 'autumn-avenue';
-  scene.background = new THREE.Color('#e6aa7d');
-  scene.fog = new THREE.FogExp2('#e8a878', .027);
+  scene.background = new THREE.Color('#9bccea');
+  scene.fog = new THREE.FogExp2('#bfd0da', .019);
 
   const camera = new THREE.PerspectiveCamera(48, 1, .055, 126);
   camera.position.set(1.09, 2.02, 4.38);
@@ -61,34 +61,60 @@ export function createAutumnStage({ reducedMotion = false } = {}) {
     return map;
   }
 
-  const sunDirection = new THREE.Vector3(.22, .20, -1).normalize();
+  const sunDirection = new THREE.Vector3(.62, .59, -.52).normalize();
+  const sunOffset = sunDirection.clone().multiplyScalar(17);
   const sky = mesh(scene, own(new THREE.SphereGeometry(94, 28, 16)), own(new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
     uniforms: {
       sun: { value: sunDirection },
-      rim: { value: new THREE.Color('#f8d29a') },
-      zenith: { value: new THREE.Color('#c78b72') },
-      haze: { value: new THREE.Color('#ffbb79') },
+      horizon: { value: new THREE.Color('#9bccea') },
+      zenith: { value: new THREE.Color('#4c9ada') },
+      cloudShade: { value: new THREE.Color('#c8deef') },
+      cloudLight: { value: new THREE.Color('#fffefa') },
       disk: { value: new THREE.Color('#ffedb8') },
     },
     vertexShader: `
       varying vec3 ray;
       void main() {
-        ray = position;
+        ray = (modelMatrix * vec4(position, 1.0)).xyz - cameraPosition;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
     fragmentShader: `
-      uniform vec3 sun, rim, zenith, haze, disk;
+      uniform vec3 sun, horizon, zenith, cloudShade, cloudLight, disk;
       varying vec3 ray;
+
+      float cloudHash(vec2 cell) {
+        vec3 p = fract(vec3(cell.xyx) * .1031);
+        p += dot(p, p.yzx + 33.33);
+        return fract((p.x + p.y) * p.z);
+      }
+
+      float cloudNoise(vec2 point) {
+        vec2 cell = floor(point);
+        vec2 f = fract(point);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(cloudHash(cell), cloudHash(cell + vec2(1, 0)), f.x),
+          mix(cloudHash(cell + vec2(0, 1)), cloudHash(cell + vec2(1, 1)), f.x), f.y);
+      }
+
+      float cloudDensity(vec2 point) {
+        return .59 * cloudNoise(point) + .27 * cloudNoise(point * 2.07 + 4.0)
+          + .10 * cloudNoise(point * 4.28 - 7.0) + .04 * cloudNoise(point * 9.12);
+      }
+
       void main() {
         vec3 direction = normalize(ray);
-        float rise = smoothstep(-.055, .63, direction.y);
+        float rise = smoothstep(-.04, .46, direction.y);
         float angle = length(direction - sun);
-        vec3 color = mix(rim, zenith, rise);
-        color = mix(color, haze, .42 * exp(-angle * 3.9));
-        color = mix(color, disk, .77 * exp(-angle * 20.0));
+        vec2 cloudUV = vec2(atan(direction.x, -direction.z) * 2.65, direction.y * 11.5) + vec2(3.4, 1.65);
+        float density = cloudDensity(cloudUV);
+        float cloud = smoothstep(.48, .66, density) * smoothstep(-.035, .035, direction.y);
+        float light = clamp(.55 + 3.6 * (density - cloudDensity(cloudUV + vec2(.0, .19))), .0, 1.0);
+        vec3 color = mix(horizon, zenith, rise);
+        color = mix(color, mix(cloudShade, cloudLight, light), cloud);
+        color = mix(color, disk, .68 * exp(-angle * 17.0));
         color = mix(color, disk, 1.0 - smoothstep(.033, .038, angle));
         gl_FragColor = vec4(color, 1.0);
         #include <tonemapping_fragment>
@@ -96,19 +122,19 @@ export function createAutumnStage({ reducedMotion = false } = {}) {
       }
     `,
   })), 0, 0, -20);
-  sky.name = 'late-afternoon-paper-sky';
-  sky.renderOrder = -100;
+  sky.name = 'blue-sky-beyond-the-maples';
+  sky.renderOrder = 100;
 
-  scene.add(new THREE.HemisphereLight('#fff3df', '#b78376', 1.76));
-  const fill = new THREE.DirectionalLight('#ffdfb3', .65);
+  scene.add(new THREE.HemisphereLight('#fff0e7', '#b47d78', 1.29));
+  const fill = new THREE.DirectionalLight('#ffdfc0', .48);
   fill.position.set(-3, 8, 6);
   scene.add(fill);
-  const sun = new THREE.DirectionalLight('#ffcc89', 2.16);
-  sun.position.set(6, 10, -8);
+  const sun = new THREE.DirectionalLight('#ffd5a1', 2.62);
+  sun.position.copy(sunOffset);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
-  Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: .5, far: 35 });
-  sun.shadow.normalBias = .022;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -15, right: 15, top: 13, bottom: -13, near: .5, far: 39 });
+  sun.shadow.normalBias = .018;
   sun.shadow.bias = -.00024;
   scene.add(sun, sun.target);
 
@@ -211,7 +237,6 @@ export function createAutumnStage({ reducedMotion = false } = {}) {
   for (const [x, z, radius] of forest.treeRoots) {
     if (Math.abs(x) > 5.4) continue;
     shade(scene, x - .17, z + .17, radius * 7.2, radius * 5.8, -.5, .56);
-    shade(scene, x - 1.77, z + 1.56, radius * 14, radius * 7.6, -.53, .29);
   }
 
   const pebbleColors = ['#977257', '#9c7558', '#b68b65', '#ae815a', '#c7a078'];
@@ -248,7 +273,7 @@ export function createAutumnStage({ reducedMotion = false } = {}) {
       void main() {
         float feather = pow(max(0.0, 1.0 - abs(cursor.x * 2.0 - 1.0)), 2.15);
         float fade = smoothstep(.03, .33, cursor.y) * (1.0 - smoothstep(.62, 1.0, cursor.y));
-        gl_FragColor = vec4(amber, feather * fade * .104);
+        gl_FragColor = vec4(amber, feather * fade * .133);
         #include <colorspace_fragment>
       }
     `,
@@ -256,13 +281,16 @@ export function createAutumnStage({ reducedMotion = false } = {}) {
   const sunshafts = [];
   for (let i = 0; i < 15; i++) {
     const z = -1.9 - i * 3.82 + range(-.43, .46);
-    const x = range(-1.08, 2.7);
-    const w = range(.76, 1.44);
+    const x = range(-1.78, 1.4);
+    const w = range(.72, 1.65);
+    const height = range(5.4, 7.25);
+    const topX = x + height * sunDirection.x / sunDirection.y;
+    const topZ = z + height * sunDirection.z / sunDirection.y;
     const geometry = new THREE.BufferGeometry();
     geometry.setIndex([0, 1, 2, 1, 3, 2]);
     geometry.setAttribute('position', new THREE.Float32BufferAttribute([
-      x - w, .08, z + 1.45, x + w, .08, z + 1.45,
-      x + 3.05, 7.1, z - 2.7, x + 3.37, 7.1, z - 2.7,
+      x - w, .08, z, x + w, .08, z,
+      topX - w * .30, height, topZ, topX + w * .30, height, topZ,
     ], 3));
     geometry.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 1, 1], 2));
     sunshafts.push(geometry);
@@ -404,8 +432,8 @@ export function createAutumnStage({ reducedMotion = false } = {}) {
     forest.update(Math.min(Math.max(0, dt), .1));
     const { x, z } = player.root.position;
     footShade.position.set(x + .035, .021, z + .05);
-    sun.target.position.set(0, 0, z - 4);
-    sun.position.set(6, 10, z - 12);
+    sun.target.position.set(0, 0, z - 6);
+    sun.position.copy(sun.target.position).add(sunOffset);
     sun.target.updateMatrixWorld();
   }
 
